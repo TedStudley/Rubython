@@ -1,0 +1,2 @@
+class RbObject(object):
+    pass

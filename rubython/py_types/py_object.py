@@ -1,0 +1,2 @@
+class PyObject(object):
+  pass
