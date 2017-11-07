@@ -3,7 +3,7 @@ from rubython import (RbContext)
 
 @given('that the RbContext instance is torn down')
 def step_impl(context):
-    RbContext.tear_down()
+    RbContext.finalize()
 
 @given('that RbContext instance is null')
 def step_impl(context):

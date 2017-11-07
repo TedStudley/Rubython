@@ -128,7 +128,6 @@ py_cRubython_RbContext_s_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   DEBUG_MARKER;
   int state = 0;
   if (instance == NULL) {
-    DEBUG_MARKER;
     instance = (py_Rubython_RbContext *)(type)->tp_alloc(type, 0);
     // Start up Ruby
     state = InitRuby();
@@ -290,6 +289,9 @@ py_cRubython_RbContext_rb_eval(py_Rubython_RbContext *self, PyObject *args) {
 }
 
 static PyMethodDef py_cRubython_RbContext_methods[] = {
+  {"finalize", (PyCFunction)py_cRubython_RbContext_s_finalize, METH_NOARGS | METH_CLASS,
+    "Finalizes the currently-active RbContext instance, invalidating all extant RbContext wrappers."},
+
   {"global_variables", (PyCFunction)py_cRubython_RbContext_global_variables, METH_NOARGS,
     "Returns a list of the names of all global variables in the current ruby context"},
   {"local_variables", (PyCFunction)py_cRubython_RbContext_local_variables, METH_NOARGS,
@@ -309,7 +311,7 @@ void
 init_Rubython_RbContext(void) {
   DEBUG_MARKER;
   if (PyType_Ready(&py_Rubython_RbContext_type) < 0) {
-    fprintf(stderr, "Something went wrong while attempting to initialize RbContext");
+    DEBUG_MSG("TODO: Handle Errors!");
     return;
   }
 
