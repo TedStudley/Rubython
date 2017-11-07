@@ -1,0 +1,9 @@
+from distutils.core import setup, Extension
+
+setup(name='rubython',
+      version='0.1.0',
+      description="Python/Ruby Bridge Module",
+      author="Ted Studley",
+      package_data={'': ['*.so']},
+      package_dir={ '': '${CMAKE_CURRENT_BINARY_DIR}' },
+      packages = ['rubython', 'rubython.rb_types'])

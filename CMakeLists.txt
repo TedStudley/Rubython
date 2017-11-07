@@ -20,8 +20,7 @@ set(CMAKE_MODULE_PATH
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(ext)
-add_subdirectory(rubython) # Python build instructions
-add_subdirectory(lib) # Ruby build instructions
-
-add_subdirectory(test) # Tests!
+add_subdirectory(src)
+add_subdirectory(python)
+add_subdirectory(ruby)
+add_subdirectory(spec)
