@@ -23,6 +23,6 @@ static const rb_data_type_t rb_Rubython_PyContext_type;
 
 static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self);
 
-void Init_py_context();
+void Init_PyContext();
 
 #endif // HEADER__RB_PY_CONTEXT_H__INCLUDED

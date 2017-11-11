@@ -17,6 +17,6 @@ extern const rb_data_type_t rb_Rubython_PyType_type;
 
 VALUE rb_cRubython_PyType__wrap(void *ptr);
 
-void Init_py_type();
+void Init_PyType();
 
 #endif // HEADER__RB_PYTYPE_H__INCLUDED

@@ -6,12 +6,6 @@ if (PYTHON)
   set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/rubython/__init__.py")
   set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/rubython")
 
-  message(STATUS "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
-  message(STATUS "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
-  message(STATUS "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}")
-  message(STATUS "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
-  message(STATUS "OUTPUT=${OUTPUT}")
-
   configure_file(${SETUP_PY_IN} ${SETUP_PY})
   file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/rubython/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/rubython/)
 
@@ -24,5 +18,6 @@ if (PYTHON)
     DEPENDS ${OUTPUT}
     DEPENDS "${PROJECT_NAME}_python_ext")
 
+  install(CODE "file(COPY ${CMAKE_CURRENT_BINARY_DIR}/rubython/ DESTINATION ${CMAKE_SOURCE_DIR}/rubython/)")
   install(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install --prefix=${CMAKE_INSTALL_PREFIX})")
 endif()

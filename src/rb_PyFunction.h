@@ -17,6 +17,6 @@ extern const rb_data_type_t rb_Rubython_PyFunction_type;
 
 VALUE rb_cRubython_PyFunction__wrap(void *obj);
 
-void Init_py_function();
+void Init_PyFunction();
 
 #endif // HEADER__RB_PY_FUNCTION_H__INCLUDED

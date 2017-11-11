@@ -86,6 +86,7 @@ py_cRubython_RbObject_getattr(py_Rubython_RbObject *self, const char *attr_name)
         DEBUG_MSG("TODO: Handle errors");
         rb_attr = rb_errinfo();
         rb_funcall(rb_mKernel, rb_intern("p"), 1, rb_attr);
+        Py_RETURN_NONE;
       }
     }
     attr = RB2PY(rb_attr);
@@ -122,7 +123,7 @@ py_cRubython_RbObject_repr(py_Rubython_RbObject *self) {
 static PyObject *
 py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject *other) {
   DEBUG_MARKER;
-  VALUE rb_result = Qundef;
+  VALUE rb_result = Qundef, *rb_argv_ = NULL;
   PyObject *result = NULL;
   int state = 0;
   if (!rb_obj_is_method(self->as.value)) {
@@ -131,7 +132,9 @@ py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject 
     Py_RETURN_NONE;
   }
 
-  rb_result = rb_method_call_protect(0, NULL, self->as.value, &state);
+  int argc = convertPyArgs(args, &rb_argv_);
+  rb_result = rb_method_call_protect(argc, rb_argv_, self->as.value, &state);
+  free(rb_argv_);
   if (state) {
     DEBUG_MSG("TODO: Handle Errors!");
     rb_result = rb_errinfo();

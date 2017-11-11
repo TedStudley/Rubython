@@ -1,8 +1,9 @@
 #include "python/Python.h"
 #include "ruby.h"
 
-#include "conversion.h"
 #include "utility.h"
+#include "conversion.h"
+#include "rb_PyTypes.h"
 #include "rb_PyObject.h"
 #include "rb_PyString.h"
 
@@ -50,7 +51,7 @@ VALUE rb_cRubython_PyString_inspect(VALUE self) {
   return rb_str_new2(PyString_AS_STRING(PyString_Repr((PyObject *)(py_string), 1)));
 }
 
-void Init_py_string() {
+void Init_PyString() {
   rb_cPyString = rb_define_class_under(rb_mPyTypes, "PyString", rb_cPyObject);
 
   rb_define_method(rb_cPyString, "to_s", rb_cRubython_PyString_to_s, 0);

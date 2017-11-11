@@ -4,6 +4,7 @@
 #include "py_Rubython.h"
 #include "py_RbTypes.h"
 #include "py_RbObject.h"
+#include "py_RbString.h"
 #include "py_RbArray.h"
 #include "py_RbHash.h"
 
@@ -25,6 +26,7 @@ void init_Rubython_RbTypes(void) {
   Py_INCREF(py_mRbTypes);
 
   init_Rubython_RbObject();
+  init_Rubython_RbString();
   init_Rubython_RbArray();
   init_Rubython_RbHash();
 }

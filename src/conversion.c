@@ -8,6 +8,7 @@
 #include "rb_PyString.h"
 // Python RbTypes
 #include "py_RbObject.h"
+#include "py_RbString.h"
 #include "py_RbArray.h"
 #include "py_RbHash.h"
 
@@ -185,6 +186,13 @@ void Py2Rb_Error(PyObject *err) {
 PyObject *Rb2Py_Object(VALUE obj) {
   PyObject *py_obj = NULL;
   switch (TYPE(obj)) {
+  // Check for a PyObject wrapper first
+    case RUBY_T_DATA:
+      if (RTYPEDDATA_P(obj) && rb_typeddata_is_kind_of(obj, &rb_Rubython_PyObject_type))
+        TypedData_Get_Struct(obj, rb_Rubython_PyObject, &rb_Rubython_PyObject_type, py_obj);
+      else
+        py_obj = RbObjectWrap(obj);
+      break;
   // Container convertors
   case RUBY_T_ARRAY:
     py_obj = Rb2Py_Array(obj);
@@ -233,8 +241,7 @@ PyObject *Rb2Py_Object(VALUE obj) {
     py_obj = RbObjectWrap(obj);
     break;
   }
-  Py_INCREF(py_obj);
-  return py_obj;
+  Py_RETURN(py_obj);
 }
 
 PyObject *Rb2Py_Array(VALUE obj) {
@@ -259,8 +266,7 @@ PyObject *Rb2Py_Struct(VALUE obj) {
 PyObject *Rb2Py_String(VALUE obj) {
   DEBUG_MARKER;
   PY_ASSERT_RBTYPE(STRING);
-  // TODO: return RbStringWrap(obj);
-  return RbObjectWrap(obj);
+  return RbStringWrap(obj);
 }
 
 PyObject *Rb2Py_Symbol(VALUE obj) {
@@ -336,4 +342,22 @@ PyObject *Rb2Py_Tuple(VALUE obj) {
   }
 
   return py_tuple;
+}
+
+int convertPyArgs(PyObject *argv, VALUE **rb_argv_p) {
+  DEBUG_MARKER;
+  if (!PyTuple_CheckExact(argv))
+    return -1;
+
+  int arglen = (int)PyTuple_Size(argv);
+  (*rb_argv_p) = (VALUE *)malloc(sizeof(VALUE)*arglen);
+
+  for (int idx = 0; idx < arglen; ++idx)
+    (*rb_argv_p)[idx] = PY2RB(PyTuple_GetItem(argv, idx));
+  return arglen;
+}
+
+int convertRbArgs(VALUE *argv, PyObject **py_arg_p) {
+  DEBUG_MARKER;
+  return 0;
 }

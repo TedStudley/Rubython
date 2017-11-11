@@ -2,11 +2,10 @@
 #include "python/frameobject.h"
 #include "python/code.h"
 
-#include "conversion.h"
 #include "utility.h"
-#include "rb_PyContext.h"
-
+#include "conversion.h"
 #include "rb_Rubython.h"
+#include "rb_PyContext.h"
 
 #define GET_PYCONTEXT \
   rb_Rubython_PyContext *py_context; \
@@ -18,10 +17,12 @@
 VALUE rb_cPyContext;
 
 static void rb_cRubython_PyContext__mark(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyContext *py_context = ptr;
 }
 
 static void rb_cRubython_PyContext__free(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyContext *py_context = ptr;
   PyThreadState *py_thread = py_context->py_thread;
   // Clear the base frame, if one was initialized
@@ -34,6 +35,7 @@ static void rb_cRubython_PyContext__free(void *ptr) {
 }
 
 static size_t rb_cRubython_PyContext__memsize(const void *ptr) {
+  DEBUG_MARKER;
   const rb_Rubython_PyContext *py_context = ptr;
   return sizeof(*py_context);
 }
@@ -89,28 +91,24 @@ static VALUE rb_cRubython_PyContext_s_allocate(VALUE klass) {
 }
 
 static VALUE rb_cRubython_PyContext_s_instance(VALUE self) {
+  DEBUG_MARKER;
   if (instance == NULL)
     return Qnil;
   return TypedData_Wrap_Struct(self, &rb_Rubython_PyContext_type, instance);
 }
 
-static VALUE rb_cRubython_PyContext_s_teardown(VALUE self) {
+static VALUE rb_cRubython_PyContext_s_finalize(VALUE self) {
   DEBUG_MARKER;
   // If there is a PyContext instance, tear it down.
   if (instance != NULL) {
     // Clear the base frame, if one was initialized
-    DEBUG_MARKER;
     if (instance->py_thread->frame != NULL) {
       Py_CLEAR(instance->py_thread->frame);
-      DEBUG_MARKER;
       instance->py_thread->frame = instance->py_frame = NULL;
     }
     // Py_EndInterpreter(instance->py_thread);
-    DEBUG_MARKER;
     Py_Finalize();
-    DEBUG_MARKER;
     ruby_xfree(instance);
-    DEBUG_MARKER;
     instance = NULL;
   }
   DEBUG_MARKER;
@@ -118,6 +116,7 @@ static VALUE rb_cRubython_PyContext_s_teardown(VALUE self) {
 }
 
 static PyCodeObject *Py_CompileFile(const char *filename) {
+  DEBUG_MARKER;
   // Open the file for reading
   FILE *fd = fopen(filename, "rb");
   if (fd == NULL)
@@ -151,7 +150,6 @@ static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self
     // Already initialized this instance
     return self;
 
-  DEBUG_MARKER;
   // Create a new anonymous code object
   PyCodeObject *py_code;
 
@@ -164,7 +162,6 @@ static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self
   } else {
     py_code = PyCode_NewEmpty("<ruby>", "<rubython>", 0);
   }
-  DEBUG_MARKER;
 
   PyObject *py_locals = PyDict_New(),
           *py_globals = PyDict_New();
@@ -187,8 +184,6 @@ static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self
     PyErrorHandler("Unable to create new frame for code");
   Py_INCREF(py_frame);
 
-  DEBUG_MARKER;
-
   // Override the old frame builtins with the builtins from the interpreter
   PyObject *builtins = py_context->py_interp->builtins;
   Py_XDECREF(py_frame->f_builtins);
@@ -198,12 +193,11 @@ static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self
   PyEval_EvalFrame(py_frame);
   py_context->py_thread->frame = py_frame;
 
-  DEBUG_MARKER;
-
   return self;
 }
 
 static VALUE rb_cRubython_PyContext_builtins(VALUE self) {
+  DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
   PyObject *py_builtins = _PyThreadState_GetFrame(py_context->py_thread)->f_builtins;
@@ -211,6 +205,7 @@ static VALUE rb_cRubython_PyContext_builtins(VALUE self) {
 }
 
 static VALUE rb_cRubython_PyContext_globals(VALUE self) {
+  DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
   PyObject *py_globals = _PyThreadState_GetFrame(py_context->py_thread)->f_globals;
@@ -218,6 +213,7 @@ static VALUE rb_cRubython_PyContext_globals(VALUE self) {
 }
 
 static VALUE rb_cRubython_PyContext_locals(VALUE self) {
+  DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
   fprintf(stderr, "py_context is at %p\n", py_context);
@@ -227,6 +223,7 @@ static VALUE rb_cRubython_PyContext_locals(VALUE self) {
 }
 
 static VALUE rb_cRubython_PyContext_modules(VALUE self) {
+  DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
   PyObject *py_modules = py_context->py_interp->modules;
@@ -235,6 +232,7 @@ static VALUE rb_cRubython_PyContext_modules(VALUE self) {
 
 
 static VALUE compile_and_run(VALUE self, const char *eval_str, int start) {
+  DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
 
@@ -257,21 +255,24 @@ static VALUE compile_and_run(VALUE self, const char *eval_str, int start) {
 }
 
 static VALUE rb_cRubython_PyContext_py_eval(VALUE self, VALUE rb_eval_str) {
+  DEBUG_MARKER;
   Check_Type(rb_eval_str, T_STRING);
   return compile_and_run(self, RSTRING_PTR(rb_eval_str), Py_eval_input);
 }
 
 static VALUE rb_cRubython_PyContext_py_exec(VALUE self, VALUE rb_exec_str) {
+  DEBUG_MARKER;
   Check_Type(rb_exec_str, T_STRING);
   return compile_and_run(self, RSTRING_PTR(rb_exec_str), Py_file_input);
 }
 
-void Init_py_context() {
+void Init_PyContext() {
+  DEBUG_MARKER;
   rb_cPyContext = rb_define_class_under(rb_mRubython, "PyContext", rb_cObject);
 
   rb_define_alloc_func(rb_cPyContext, rb_cRubython_PyContext_s_allocate);
   rb_define_singleton_method(rb_cPyContext, "instance", rb_cRubython_PyContext_s_instance, 0);
-  rb_define_singleton_method(rb_cPyContext, "teardown", rb_cRubython_PyContext_s_teardown, 0);
+  rb_define_singleton_method(rb_cPyContext, "finalize!", rb_cRubython_PyContext_s_finalize, 0);
 
   rb_define_method(rb_cPyContext, "initialize", rb_cRubython_PyContext_initialize, -1);
 

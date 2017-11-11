@@ -1,24 +1,28 @@
 #include "python/Python.h"
 #include "ruby.h"
 
-#include "conversion.h"
 #include "utility.h"
+#include "conversion.h"
+#include "rb_PyTypes.h"
 #include "rb_PyObject.h"
 #include "rb_PyCFunction.h"
 
 VALUE rb_cPyCFunction;
 
 static void rb_cRubython_PyCFunction__mark(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyCFunction *py_cfunc = ptr;
   Py_XINCREF(py_cfunc);
 }
 
 static void rb_cRubython_PyCFunction__free(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyCFunction *py_cfunc = ptr;
   Py_XDECREF(py_cfunc);
 }
 
 static size_t rb_cRubython_PyCFunction__memsize(const void *ptr) {
+  DEBUG_MARKER;
   const rb_Rubython_PyCFunction *py_cfunc = ptr;
   return sizeof(py_cfunc) + Py_SIZE(py_cfunc);
 }
@@ -35,10 +39,12 @@ const rb_data_type_t rb_Rubython_PyCFunction_type = {
   TypedData_Get_Struct(self, rb_Rubython_PyCFunction, &rb_Rubython_PyCFunction_type, py_cfunc);
 
 VALUE rb_cRubython_PyCFunction__wrap(void *ptr) {
+  DEBUG_MARKER;
   return TypedData_Wrap_Struct(rb_cPyCFunction, &rb_Rubython_PyCFunction_type, ptr);
 }
 
 VALUE rb_cRubython_PyCFunction_call(VALUE self, VALUE args) {
+  DEBUG_MARKER;
   GET_PYCFUNCTION;
   VALUE rb_kwargs, rb_args;
   PyObject *py_args, *py_kwargs;
@@ -57,7 +63,8 @@ VALUE rb_cRubython_PyCFunction_call(VALUE self, VALUE args) {
   return PY2RB(py_result); // PY2RB(py_result);
 }
 
-void Init_py_c_function() {
+void Init_PyCFunction() {
+  DEBUG_MARKER;
   rb_cPyCFunction = rb_define_class_under(rb_mPyTypes, "PyCFunction", rb_cPyObject);
 
   rb_define_method(rb_cPyCFunction, "call", rb_cRubython_PyCFunction_call, -2);

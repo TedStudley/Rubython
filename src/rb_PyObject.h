@@ -24,6 +24,6 @@ VALUE rb_cRubython_PyObject_inspect(VALUE self);
 
 VALUE rb_cRubython_PyObject_py_send(VALUE self, VALUE rb_key);
 
-void Init_py_object();
+void Init_PyObject();
 
 #endif // HEADER__RB_PY_OBJECT_H__INCLUDED

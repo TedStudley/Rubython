@@ -2,6 +2,9 @@
 #include "python/Python.h"
 #include "python/object.h"
 
+#include "utility.h"
+#include "conversion.h"
+#include "rb_PyTypes.h"
 #include "rb_PyObject.h"
 #include "rb_PyType.h"
 
@@ -38,7 +41,7 @@ VALUE rb_cRubython_PyType__wrap(void *ptr) {
   return TypedData_Wrap_Struct(rb_cPyType, &rb_Rubython_PyType_type, py_type);
 }
 
-void Init_py_type() {
+void Init_PyType() {
   rb_cPyType = rb_define_class_under(rb_mPyTypes, "PyType", rb_cPyObject);
 
   rb_define_method(rb_cPyType, "inspect", rb_cRubython_PyObject_to_s, 0);

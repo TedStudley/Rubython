@@ -5,6 +5,6 @@
 
 extern VALUE rb_mRubython, rb_mPyTypes;
 
-void Init_py_types();
+void Init_PyTypes();
 
 #endif // HEADER__RB_PY_TYPES_H__INCLUDED

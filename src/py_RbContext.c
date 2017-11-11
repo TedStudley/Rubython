@@ -4,20 +4,23 @@
 
 #include "ruby/vm.h"
 
+#include "ruby_shims.h"
 #include "utility.h"
 #include "conversion.h"
 #include "py_Rubython.h"
 #include "py_RbContext.h"
 #include "rb_Rubython.h"
 
-void (*Init_prelude)(void) = INIT_PRELUDE_ADDR;
-void (*Init_enc)(void) = INIT_ENC_ADDR;
-void (*Init_ext)(void) = INIT_EXT_ADDR;
-typedef struct {
-  int argc;
-  char **argv;
-} origarg_t;
-origarg_t *origarg = ORIGARG_ADDR;
+#define GET_INSTANCE \
+  py_Rubython_RbContext *instance = NULL; \
+  if (rbcontext_instance_p != NULL) \
+    instance = (*rbcontext_instance_p)
+
+#define VERIFY_INSTANCE_HEALTH \
+  if (rbcontext_instance_p == NULL || \
+      (*rbcontext_instance_p) != self) { \
+    PyErr_SetString(PyExc_RuntimeError, "RbContext instance wrapper no longer has a valid context instance"); \
+    return NULL; }
 
 static PyMethodDef py_cRubython_RbContext_methods[];
 static PyMemberDef py_cRubython_RbContext_members[];
@@ -68,8 +71,7 @@ static PyTypeObject py_Rubython_RbContext_type = {
 static void
 py_cRubython_RbContext_s_dealloc(py_Rubython_RbContext *self) {
   DEBUG_MARKER;
-  PyObject_GC_UnTrack(self);
-  py_cRubython_RbContext_s_finalize(self, NULL);
+  // py_cRubython_RbContext_s_finalize(self, NULL);
   py_cRubython_RbContext_s_clear(self);
   Py_TYPE(self)->tp_free((PyObject *)(self));
 }
@@ -83,7 +85,6 @@ py_cRubython_RbContext_s_clear(py_Rubython_RbContext *self) {
   Py_CLEAR(self->filename);
 
   self->rb_binding = Qundef;
-  rb_gc_unregister_address(&self->rb_binding);
 
   return 0;
 }
@@ -99,20 +100,20 @@ static int InitRuby() {
     return state;
   }
 
-  ruby_init_loadpath();
-
   origarg->argc = 1;
   origarg->argv = malloc(sizeof(char *));
   origarg->argv[0] = "rubython";
 
-  rb_const_remove(rb_cObject, rb_intern_const("ARGV"));
+  ruby_init_loadpath();
+
+  rb_const_remove(rb_cObject, rb_intern("ARGV"));
   ruby_prog_init();
 
   Init_enc();
   Init_ext();
 
   Init_prelude();
-  rb_const_remove(rb_cObject, rb_intern_const("TMP_RUBY_PREFIX"));
+  rb_const_remove(rb_cObject, rb_intern("TMP_RUBY_PREFIX"));
 
   rb_define_module("Gem");
 
@@ -122,13 +123,15 @@ static int InitRuby() {
   return state;
 }
 
-static py_Rubython_RbContext *instance = NULL;
+static py_Rubython_RbContext **rbcontext_instance_p = NULL;
 static PyObject *
 py_cRubython_RbContext_s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   DEBUG_MARKER;
   int state = 0;
-  if (instance == NULL) {
-    instance = (py_Rubython_RbContext *)(type)->tp_alloc(type, 0);
+  if (rbcontext_instance_p == NULL) {
+    rbcontext_instance_p = (py_Rubython_RbContext **)malloc(sizeof(py_Rubython_RbContext *));
+    (*rbcontext_instance_p) = (py_Rubython_RbContext *)(type)->tp_alloc(type, 0);
+
     // Start up Ruby
     state = InitRuby();
     if (state) {
@@ -136,30 +139,68 @@ py_cRubython_RbContext_s_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-    instance->rb_binding = rb_const_get(rb_cObject, rb_intern("TOPLEVEL_BINDING"));
-    rb_gc_register_address(&instance->rb_binding);
+    (*rbcontext_instance_p)->rb_binding = 0;
+    rb_gc_register_address(&(*rbcontext_instance_p)->rb_binding);
   }
-  Py_RETURN((PyObject *)(instance));
+  Py_RETURN((PyObject *)(*rbcontext_instance_p));
+}
+
+static PyObject *
+py_cRubython_RbContext_s_get_instance(py_Rubython_RbContext *cls, PyObject *dummy) {
+  DEBUG_MARKER;
+
+  if (rbcontext_instance_p == NULL)
+    Py_RETURN_NONE;
+  Py_RETURN((PyObject *)*rbcontext_instance_p);
 }
 
 static PyObject *
 py_cRubython_RbContext_s_finalize(py_Rubython_RbContext *cls, PyObject *dummy) {
   DEBUG_MARKER;
-  py_Rubython_RbContext *tmp;
+  py_Rubython_RbContext *instance;
   int state = 0;
 
-  if (instance == NULL)
+  if (rbcontext_instance_p == NULL)
     Py_RETURN_NONE;
-  tmp = instance;
-  instance = NULL;
+  // Release the master reference to the rbcontext instance
+  instance = (*rbcontext_instance_p);
   Py_XDECREF(instance);
+  free(rbcontext_instance_p);
+  rbcontext_instance_p = NULL;
 
+  // Allow the binding to be cleaned up
+  // TODO: Wtf happens to any extant references?
+  rb_gc_unregister_address(&instance->rb_binding);
+
+  rb_set_errinfo(Qnil);
   // Clean up after Ruby
-  ruby_cleanup(state);
+  state = ruby_cleanup(0);
+  if (state) {
+    DEBUG_MSG("TODO: Handle Errors!");
+    return NULL;
+  }
+
+  // This is dumb.
+  (*ruby_setup_initialized_p) = 0;
+  (*frozen_strings_p) = NULL;
+  (*ruby_vm_global_method_state_p) = 1;
+  (*ruby_vm_global_constant_state_p) = 1;
+  (*ruby_vm_class_serial_p) = 1;
+  // Really dumb
+  // TODO: This probably leaks memory.
+  rb_cBasicObject = 0;
+  rb_cObject = 0;
+  rb_cModule = 0;
+  rb_cClass = 0;
+  rb_cString = 0;
+  // TODO: DON'T HARDCODE THIS VALUE
+  global_symbols_p->last_id = 209;
+
   Py_RETURN_NONE;
 }
 
 static VALUE eval_str(VALUE str) {
+  GET_INSTANCE;
   return rb_funcall(rb_cObject, rb_intern("eval"), 2, str, instance->rb_binding);
 }
 
@@ -185,6 +226,10 @@ initialize_ruby_context(py_Rubython_RbContext *self) {
   ruby_script(cfilename);
   ruby_init_loadpath();
 
+  // Grab the current binding
+  self->rb_binding = rb_funcall((*ruby_current_vm_p)->top_self, rb_intern("binding"), 0);
+
+  // Evaluate the initial context
   result = rb_protect(eval_str, rb_str_new_cstr(contents), &state);
   if (state) {
     result = rb_errinfo();
@@ -230,10 +275,11 @@ static PyMemberDef py_cRubython_RbContext_members[] = {
 static PyObject *
 py_cRubython_RbContext_global_variables(py_Rubython_RbContext *self, PyObject *dummy) {
   DEBUG_MARKER;
+  VERIFY_INSTANCE_HEALTH;
   VALUE retval = Qundef;
   int state = 0;
 
-  retval = rb_funcall_protect(&state, rb_cObject, rb_intern("global_variables"), 0);
+  retval = rb_funcall_protect(&state, self->rb_binding, rb_intern("global_variables"), 0);
   if (state) {
     DEBUG_MSG("TODO: Handle errors");
     return NULL;
@@ -245,10 +291,11 @@ py_cRubython_RbContext_global_variables(py_Rubython_RbContext *self, PyObject *d
 static PyObject *
 py_cRubython_RbContext_local_variables(py_Rubython_RbContext *self, PyObject *dummy) {
   DEBUG_MARKER;
+  VERIFY_INSTANCE_HEALTH;
   VALUE retval = Qundef;
   int state = 0;
 
-  retval = rb_funcall_protect(&state, rb_cObject, rb_intern("global_variables"), 0);
+  retval = rb_funcall_protect(&state, self->rb_binding, rb_intern("local_variables"), 0);
   if (state) {
     DEBUG_MSG("TODO: Handle errors");
     return NULL;
@@ -260,6 +307,7 @@ py_cRubython_RbContext_local_variables(py_Rubython_RbContext *self, PyObject *du
 static PyObject *
 py_cRubython_RbContext_constants(py_Rubython_RbContext *self, PyObject *dummy) {
   DEBUG_MARKER;
+  VERIFY_INSTANCE_HEALTH;
   VALUE retval = Qundef;
   int state = 0;
 
@@ -275,6 +323,7 @@ py_cRubython_RbContext_constants(py_Rubython_RbContext *self, PyObject *dummy) {
 static PyObject *
 py_cRubython_RbContext_rb_eval(py_Rubython_RbContext *self, PyObject *args) {
   DEBUG_MARKER;
+  VERIFY_INSTANCE_HEALTH;
   int state;
   char *eval_cstr = NULL;
   VALUE retval = Qundef;
@@ -283,12 +332,20 @@ py_cRubython_RbContext_rb_eval(py_Rubython_RbContext *self, PyObject *args) {
   retval = rb_protect(eval_str, rb_str_new_cstr(eval_cstr), &state);
   if (state) {
     DEBUG_MSG("TODO: Handle error");
+    VALUE rb_exc, rb_errmsg;
+    rb_exc = rb_errinfo();
+    rb_errmsg = rb_funcall(rb_exc, rb_intern("to_s"), 0);
+    if (NIL_P(rb_errmsg))
+      rb_errmsg = rb_class_name(CLASS_OF(rb_exc));
+    PyErr_Format(PyExc_RuntimeError, "%s", RSTRING_PTR(rb_errmsg));
     return NULL;
   }
   return RB2PY(retval);
 }
 
 static PyMethodDef py_cRubython_RbContext_methods[] = {
+  {"get_instance", (PyCFunction)py_cRubython_RbContext_s_get_instance, METH_NOARGS | METH_CLASS,
+    "Returns the currently-active RbContext instance if one exists, and None otherwise."},
   {"finalize", (PyCFunction)py_cRubython_RbContext_s_finalize, METH_NOARGS | METH_CLASS,
     "Finalizes the currently-active RbContext instance, invalidating all extant RbContext wrappers."},
 

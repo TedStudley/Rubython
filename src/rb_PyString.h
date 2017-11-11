@@ -20,6 +20,6 @@ VALUE rb_cRubython_PyString__wrap(void *obj);
 VALUE rb_cRubython_PyString_to_s(VALUE self);
 VALUE rb_cRubython_PyString_inspect(VALUE self);
 
-void Init_py_string();
+void Init_PyString();
 
 #endif // HEADER__RB_PY_STRING_H__INCLUDED

@@ -2,9 +2,10 @@
 #include "ruby.h"
 
 #include "utility.h"
+#include "conversion.h"
+#include "rb_PyTypes.h"
 #include "rb_PyObject.h"
 #include "rb_PyString.h"
-#include "conversion.h"
 
 #define GET_PYOBJECT \
   rb_Rubython_PyObject *py_object; \
@@ -71,27 +72,7 @@ VALUE rb_cRubython_PyObject_callableq(VALUE self) {
   return PyCallable_Check(py_object) ? Qtrue : Qfalse;
 }
 
-// VALUE rb_cRubython_PyObject_call(VALUE self, VALUE args) {
-//   GET_PYOBJECT;
-//   if (!PyCallable_Check(py_object))
-//     rb_raise(rb_eTypeError, "'%s' object is not callable", Py_TYPE(py_object)->tp_name);
-// 
-//   PyObject *py_callee = py_object;
-//   if (!(PyFunction_Check(py_object) || PyCFunction_Check(py_object))) {
-//     if (PyObject_HasAttrString(py_object, "__call__"))
-//       py_callee = PyObject_GetAttrString(py_object, "__call__");
-//     else
-//       rb_raise(rb_eTypeError, "Callable '%s' object does not have '__call__' attr... Something is very wrong!", Py_TYPE(py_object)->tp_name);
-//   }
-
-//   return PY2RB(((PyFunctionObject *)(py_callee))->func_code);
-//   // PyObject *result = PyEval_CallObject(py_object, py_args);
-//   // Py_DECREF(py_args);
-// 
-//   // return PY2RB(result);
-// }
-
-void Init_py_object() {
+void Init_PyObject() {
   rb_cPyObject = rb_define_class_under(rb_mPyTypes, "PyObject", rb_cData);
   rb_undef_alloc_func(rb_cPyObject);
 
@@ -99,7 +80,4 @@ void Init_py_object() {
   rb_define_method(rb_cPyObject, "inspect", rb_cRubython_PyObject_inspect, 0);
 
   rb_define_method(rb_cPyObject, "getattr", rb_cRubython_PyObject_getattr, 1);
-
-  // rb_define_method(rb_cPyObject, "callable?", rb_cRubython_PyObject_callableq, 0);
-  // rb_define_method(rb_cPyObject, "call", rb_cRubython_PyObject_call, -2);
 }

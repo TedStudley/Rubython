@@ -1,8 +1,9 @@
 #include "python/Python.h"
 #include "ruby.h"
 
-#include "conversion.h"
 #include "utility.h"
+#include "conversion.h"
+#include "rb_PyTypes.h"
 #include "rb_PyObject.h"
 #include "rb_PyFunction.h"
 
@@ -38,6 +39,6 @@ VALUE rb_cRubython_PyFunction__wrap(void *ptr) {
   return TypedData_Wrap_Struct(rb_cPyFunction, &rb_Rubython_PyFunction_type, ptr);
 }
 
-void Init_py_function() {
+void Init_PyFunction() {
   rb_cPyFunction = rb_define_class_under(rb_mPyTypes, "PyFunction", rb_cPyObject);
 }

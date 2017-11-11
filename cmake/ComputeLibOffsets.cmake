@@ -8,7 +8,7 @@ macro(COMPUTE_LIB_OFFSET LIBPATH SYMBOL VARIABLE)
   execute_process(
       COMMAND ${OBJDUMP_EXECUTABLE} --demangle -T ${LIBPATH}
       COMMAND grep "SECT"
-      COMMAND grep "${SYMBOL}$"
+      COMMAND grep -w "${SYMBOL}"
       COMMAND awk "{ print \"0x\"$1 }"
       COMMAND head -n1
       RESULT_VARIABLE SYMBOL_RETVAL
