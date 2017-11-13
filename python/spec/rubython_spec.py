@@ -1,4 +1,4 @@
-from spec.python.environment import *
+from spec.environment import *
 
 with description('rubython'):
     with it('should exist'):

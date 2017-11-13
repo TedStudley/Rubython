@@ -1,23 +1,26 @@
 find_program(PYTHON "python")
 
 if (PYTHON)
-  set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
-  set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
-  set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/rubython/__init__.py")
-  set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/rubython")
+  set(RUBYTHON_SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
+  set(RUBYTHON_SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
+  configure_file(${RUBYTHON_SETUP_PY_IN} ${RUBYTHON_SETUP_PY})
+else(PYTHON)
+  message(FATAL_ERROR "Could not find Python. Bailing out.")
+endif(PYTHON)
 
-  configure_file(${SETUP_PY_IN} ${SETUP_PY})
-  file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/rubython/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/rubython/)
+file(GLOB_RECURSE PYTHON_SOURCES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  "rubython/**/*.py")
 
-  add_custom_command(OUTPUT ${OUTPUT}
-    COMMAND ${PYTHON} ${SETUP_PY} build
-    COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}_python
-    DEPENDS ${DEPS}
-    DEPENDS ${PROJECT_NAME}_python_ext)
-  add_custom_target(rubython_python_module ALL
-    DEPENDS ${OUTPUT}
-    DEPENDS "${PROJECT_NAME}_python_ext")
+add_custom_target(rubython_python_module ALL
+  COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/rubython ${CMAKE_CURRENT_BINARY_DIR}/.
+  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/rubython_ext.so ${CMAKE_CURRENT_BINARY_DIR}/rubython/.
+  DEPENDS ${PYTHON_SOURCES}
+  DEPENDS rubython_python_ext)
+add_custom_target(rubython_python_egg ALL
+  COMMAND ${PYTHON} ${RUBYTHON_SETUP_PY} build
+  DEPENDS rubython_python_module)
 
-  install(CODE "file(COPY ${CMAKE_CURRENT_BINARY_DIR}/rubython/ DESTINATION ${CMAKE_SOURCE_DIR}/rubython/)")
-  install(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install --prefix=${CMAKE_INSTALL_PREFIX})")
-endif()
+install(CODE "execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMAND ${PYTHON} ${RUBYTHON_SETUP_PY} install --prefix=${CMAKE_INSTALL_PREFIX})")
+
+add_subdirectory(spec)

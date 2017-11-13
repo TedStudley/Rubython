@@ -1,4 +1,4 @@
-from spec.python.environment import *
+from spec.environment import *
 
 EXCEPTION_CASES = [
     ('foo',       'undefined local variable or method'),

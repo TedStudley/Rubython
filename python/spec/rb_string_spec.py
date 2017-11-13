@@ -1,4 +1,4 @@
-from spec.python.environment import *
+from spec.environment import *
 from rubython.rubython_ext.rb_types import RbString
 
 with describe('RbString'):

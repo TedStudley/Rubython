@@ -84,7 +84,7 @@ set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     COMPILE_FLAGS "${CFLAGS}"
     LINK_FLAGS "${LDFLAGS}"
     PREFIX "" SUFFIX ".bundle" # TODO: Don't hardcode this
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ruby/lib/rubython/"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ruby/"
     EXCLUDE_FROM_ALL TRUE)
 
 link_directories(${RUBY_LIBRARY_DIR})
@@ -95,5 +95,5 @@ set_target_properties(${PROJECT_NAME}_python_ext PROPERTIES
     PREFIX "" SUFFIX ".so" # TODO: Don't hardcode this.
     COMPILE_FLAGS ${CFLAGS}
     LINK_FLAGS ${LDFLAGS}
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/rubython/"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/"
     EXCLUDE_FROM_ALL TRUE)
