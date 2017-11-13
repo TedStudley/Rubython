@@ -1,2 +1,0 @@
-class RbObject(object):
-    pass

@@ -14,16 +14,19 @@
 VALUE rb_cPyObject;
 
 static void rb_cRubython_PyObject__mark(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyObject *py_object = ptr;
   Py_XINCREF(py_object);
 }
 
 static void rb_cRubython_PyObject__free(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyObject *py_object = ptr;
   Py_XDECREF(py_object);
 }
 
 static size_t rb_cRubython_PyObject__memsize(const void *ptr) {
+  DEBUG_MARKER;
   const rb_Rubython_PyObject *py_object = ptr;
   return sizeof(py_object) + Py_SIZE(py_object);
 }
@@ -36,22 +39,26 @@ const rb_data_type_t rb_Rubython_PyObject_type = {
 };
 
 VALUE rb_cRubython_PyObject__wrap(void *ptr) {
+  DEBUG_MARKER;
   rb_Rubython_PyObject *py_object = ptr;
   VALUE rb_obj = TypedData_Wrap_Struct(rb_cPyObject, &rb_Rubython_PyObject_type, py_object);
   return rb_obj;
 }
 
 VALUE rb_cRubython_PyObject_to_s(VALUE self) {
+  DEBUG_MARKER;
   GET_PYOBJECT;
   return rb_str_new2(PyString_AS_STRING(PyObject_Str(py_object)));
 }
 
 VALUE rb_cRubython_PyObject_inspect(VALUE self) {
+  DEBUG_MARKER;
   GET_PYOBJECT;
   return rb_str_new2(PyString_AS_STRING(PyObject_Repr(py_object)));
 }
 
 VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
+  DEBUG_MARKER;
   GET_PYOBJECT;
   const char *key;
   if (RB_TYPE_P(rb_key, T_STRING)) {
@@ -68,11 +75,13 @@ VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
 }
 
 VALUE rb_cRubython_PyObject_callableq(VALUE self) {
+  DEBUG_MARKER;
   GET_PYOBJECT;
   return PyCallable_Check(py_object) ? Qtrue : Qfalse;
 }
 
 void Init_PyObject() {
+  DEBUG_MARKER;
   rb_cPyObject = rb_define_class_under(rb_mPyTypes, "PyObject", rb_cData);
   rb_undef_alloc_func(rb_cPyObject);
 

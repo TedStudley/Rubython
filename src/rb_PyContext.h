@@ -7,12 +7,8 @@ extern
 VALUE rb_mRubython, rb_cPyContext;
 
 typedef struct rb_Rubython_PyContextStruct {
-  PyInterpreterState *py_interp;
-  PyThreadState *py_thread;
-  PyCodeObject *py_code;
+  VALUE filename;
   PyFrameObject *py_frame;
-  PyObject *py_locals;
-  PyObject *py_globals;
 } rb_Rubython_PyContext;
 
 static void rb_cRubython_PyContext__mark(void *ptr);

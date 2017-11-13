@@ -10,7 +10,7 @@ include Rubython
 describe PyContext do
   after(:each) do
     # Tear down the PyContext, if we created one
-    PyContext.teardown
+    PyContext.finalize!
   end
 
   it 'exists' do

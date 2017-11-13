@@ -71,7 +71,6 @@ static PyTypeObject py_Rubython_RbContext_type = {
 static void
 py_cRubython_RbContext_s_dealloc(py_Rubython_RbContext *self) {
   DEBUG_MARKER;
-  // py_cRubython_RbContext_s_finalize(self, NULL);
   py_cRubython_RbContext_s_clear(self);
   Py_TYPE(self)->tp_free((PyObject *)(self));
 }

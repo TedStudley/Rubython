@@ -36,45 +36,63 @@ COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} ruby_current_thread RUBY_CURRENT_THREAD_
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} Init_prelude INIT_PRELUDE_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} Init_enc INIT_ENC_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} Init_ext INIT_EXT_OFFSET)
-COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} origarg.1 ORIGARG_OFFSET)
+COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} origarg ORIGARG_OFFSET)
 
-COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} ruby_setup.initialized RUBY_SETUP_INITIALIZED_OFFSET)
+COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} initialized RUBY_SETUP_INITIALIZED_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} frozen_strings FROZEN_STRINGS_OFFSET)
-COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} global_method_cache.2 GLOBAL_METHOD_CACHE_OFFSET)
+COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} global_method_cache GLOBAL_METHOD_CACHE_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} ruby_vm_global_method_state RUBY_VM_GLOBAL_METHOD_STATE_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} ruby_vm_global_constant_state RUBY_VM_GLOBAL_CONSTANT_STATE_OFFSET)
 COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} ruby_vm_class_serial RUBY_VM_CLASS_SERIAL_OFFSET)
-COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} global_symbols.0 GLOBAL_SYMBOLS_OFFSET)
+COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} global_symbols GLOBAL_SYMBOLS_OFFSET)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+set(LIBRARIES ${LIBRARIES} ${RUBY_LIBRARY_PATH})
 
-set(CMAKE_C_COMPILER /usr/local/bin/gcc)
-set(CMAKE_LINKER /usr/local/bin/gcc)
+find_package(PythonLibs)
+if(PYTHONLIBS_FOUND)
+  include_directories(${PYTHON_INCLUDE_DIRS})
+  set(LIBRARIES ${LIBRARIES} ${PYTHON_LIBRARIES})
+else(PYTHONLIBS_FOUND)
+  message(FATAL_ERROR "Could not locate python libraries")
+endif(PYTHONLIBS_FOUND)
 
-set(CFLAGS_SHARED "-dynamic -fno-common -fno-strict-aliasing -arch x86_64 -pipe -Wall -Wstrict-prototypes -Wshorten-64-to-32 -Wdeprecated -Wno-unused-function -Wno-unused-variable")
-set(LDFLAGS_SHARED "-dynamic -bundle -fPIC -Bstatic -fstack-protector -Wl,-undefined,dynamic_lookup -Wl,-multiply_defined,suppress -arch x86_64")
+set(CFLAGS "-dynamic -pipe -fno-common -fno-strict-aliasing -Wall -Wstrict-prototypes -Wdeprecated -Wno-unused-function -Wno-unused-variable")
+set(LDFLAGS "-dynamic -fPIC -Bstatic -fstack-protector -Wl,-undefined,dynamic_lookup")
+
+if(APPLE)
+  set(CFLAGS_SHARED "${CFLAGS} -Wshorten-64-to-32 -mmacosx-version-min=10.7")
+  set(LDFLAGS_SHARED "${LDFLAGS} -bundle -Wl,-multiply_defined,suppress")
+  set(LIBRARIES ${LIBRARIES} z pthread dl objc)
+else(APPLE)
+  set(CFLAGS_SHARED "${CFLAGS}")
+  set(LDFLAGS_SHARED "${LDFLAGS}")
+  set(LIBRARIES ${LIBRARIES})
+endif(APPLE)
+
+set(DEBUG TRUE)
+  set(CFLAGS "${CFLAGS} -O0 -g3 -fPIC")
+if(DEBUG)
+  set(CFLAGS "${CFLAGS} -O3")
+endif(DEBUG)
 
 add_library(${PROJECT_NAME}_ruby_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_ruby_ext z pthread dl objc python)
-add_definitions(-D_XOPEN_SOURCE -D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT -D_REENTRANT)
+target_link_libraries(${PROJECT_NAME}_ruby_ext ${LIBRARIES})
 set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
-    COMPILE_FLAGS "-O3 -fPIC -mmacosx-version-min=10.7 ${CFLAGS_SHARED}"
-    LINK_FLAGS "-L. ${LDFLAGS_SHARED}"
-    PREFIX "" SUFFIX .bundle
+    COMPILE_FLAGS "${CFLAGS}"
+    LINK_FLAGS "${LDFLAGS}"
+    PREFIX "" SUFFIX ".bundle" # TODO: Don't hardcode this
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ruby/lib/rubython/"
     EXCLUDE_FROM_ALL TRUE)
 
-set(CFLAGS "-fwrapv -Os -g ${CFLAGS_SHARED}")
-set(LDFLAGS "-undefined dynamic_lookup -Wl,-F. -Wl,-L,${RUBY_LIBRARY_DIR} -Wl,-rpath,${RUBY_LIBRARY_DIR} ${LDFLAGS_SHARED}")
 link_directories(${RUBY_LIBRARY_DIR})
 add_library(${PROJECT_NAME}_python_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_python_ext pthread dl objc ruby)
-add_definitions(-DENABLE_DTRACE -DMACOSX -DNDEBUG)
+target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES})
 set_target_properties(${PROJECT_NAME}_python_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
-    PREFIX "" SUFFIX .so
+    PREFIX "" SUFFIX ".so" # TODO: Don't hardcode this.
     COMPILE_FLAGS ${CFLAGS}
     LINK_FLAGS ${LDFLAGS}
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/rubython/"
