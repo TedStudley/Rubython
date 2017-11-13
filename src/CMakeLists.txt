@@ -48,12 +48,10 @@ COMPUTE_LIB_OFFSET(${RUBY_LIBRARY_PATH} global_symbols GLOBAL_SYMBOLS_OFFSET)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-set(LIBRARIES ${LIBRARIES} ${RUBY_LIBRARY_PATH})
 
 find_package(PythonLibs)
 if(PYTHONLIBS_FOUND)
   include_directories(${PYTHON_INCLUDE_DIRS})
-  set(LIBRARIES ${LIBRARIES} ${PYTHON_LIBRARIES})
 else(PYTHONLIBS_FOUND)
   message(FATAL_ERROR "Could not locate python libraries")
 endif(PYTHONLIBS_FOUND)
@@ -64,7 +62,7 @@ set(LDFLAGS "-dynamic -fPIC -Bstatic -fstack-protector -Wl,-undefined,dynamic_lo
 if(APPLE)
   set(CFLAGS_SHARED "${CFLAGS} -Wshorten-64-to-32 -mmacosx-version-min=10.7")
   set(LDFLAGS_SHARED "${LDFLAGS} -bundle -Wl,-multiply_defined,suppress")
-  set(LIBRARIES ${LIBRARIES} z pthread dl objc)
+  set(LIBRARIES ${LIBRARIES} dl objc) # z pthread
 else(APPLE)
   set(CFLAGS_SHARED "${CFLAGS}")
   set(LDFLAGS_SHARED "${LDFLAGS}")
@@ -78,7 +76,7 @@ if(DEBUG)
 endif(DEBUG)
 
 add_library(${PROJECT_NAME}_ruby_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_ruby_ext ${LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_ruby_ext ${LIBRARIES} ${PYTHON_LIBRARIES})
 set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
     COMPILE_FLAGS "${CFLAGS}"
@@ -89,7 +87,7 @@ set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
 
 link_directories(${RUBY_LIBRARY_DIR})
 add_library(${PROJECT_NAME}_python_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES} ${RUBY_LIBRARY_PATH})
 set_target_properties(${PROJECT_NAME}_python_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
     PREFIX "" SUFFIX ".so" # TODO: Don't hardcode this.
