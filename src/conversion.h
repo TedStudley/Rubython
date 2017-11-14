@@ -113,6 +113,6 @@ void Rb2Py_Error(VALUE value);
 PyObject *Rb2Py_Tuple(VALUE value);
 
 int convertPyArgs(PyObject *args, VALUE **rb_arg_p);
-int convertRbArgs(VALUE *args, PyObject **py_arg_p);
+int convertRbArgs(VALUE args, PyObject **py_arg_p);
 
 #endif // HEADER_CONVERSION_H__INCLUDED

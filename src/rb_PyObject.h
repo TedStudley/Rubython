@@ -22,6 +22,8 @@ static VALUE rb_cRubython_PyObject_initialize(int argc, VALUE *argv, VALUE self)
 VALUE rb_cRubython_PyObject_to_s(VALUE self);
 VALUE rb_cRubython_PyObject_inspect(VALUE self);
 
+VALUE rb_cRubython_PyObject_call(VALUE self, VALUE args);
+VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE args);
 VALUE rb_cRubython_PyObject_py_send(VALUE self, VALUE rb_key);
 
 void Init_PyObject();

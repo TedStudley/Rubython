@@ -45,19 +45,22 @@ VALUE rb_cRubython_PyObject__wrap(void *ptr) {
   return rb_obj;
 }
 
-VALUE rb_cRubython_PyObject_to_s(VALUE self) {
+VALUE
+rb_cRubython_PyObject_to_s(VALUE self) {
   DEBUG_MARKER;
   GET_PYOBJECT;
   return rb_str_new2(PyString_AS_STRING(PyObject_Str(py_object)));
 }
 
-VALUE rb_cRubython_PyObject_inspect(VALUE self) {
+VALUE
+rb_cRubython_PyObject_inspect(VALUE self) {
   DEBUG_MARKER;
   GET_PYOBJECT;
   return rb_str_new2(PyString_AS_STRING(PyObject_Repr(py_object)));
 }
 
-VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
+VALUE
+rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
   DEBUG_MARKER;
   GET_PYOBJECT;
   const char *key;
@@ -74,10 +77,29 @@ VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
     rb_raise(rb_eKeyError, "object has no attribute '%s'", key);
 }
 
-VALUE rb_cRubython_PyObject_callableq(VALUE self) {
+VALUE
+rb_cRubython_PyObject_callableq(VALUE self) {
   DEBUG_MARKER;
   GET_PYOBJECT;
   return PyCallable_Check(py_object) ? Qtrue : Qfalse;
+}
+
+VALUE
+rb_cRubython_PyObject_call(VALUE self, VALUE args) {
+  DEBUG_MARKER;
+  GET_PYOBJECT;
+  PyObject *py_result, *py_args;
+  VALUE result = Qundef;
+
+  convertRbArgs(args, &py_args);
+  // TODO: Support kwargs
+  py_result = PyObject_Call(py_object, py_args, NULL);
+  if (py_result == NULL) {
+    DEBUG_MSG("TODO: Handle Errors!");
+    rb_raise(rb_eTypeError, "'<type>' object is not callable");
+  }
+
+  return PY2RB(py_result);
 }
 
 void Init_PyObject() {
@@ -104,4 +126,5 @@ void Init_PyObject() {
   rb_define_method(rb_cPyObject, "inspect", rb_cRubython_PyObject_inspect, 0);
 
   rb_define_method(rb_cPyObject, "getattr", rb_cRubython_PyObject_getattr, 1);
+  rb_define_method(rb_cPyObject, "call", rb_cRubython_PyObject_call, -2);
 }

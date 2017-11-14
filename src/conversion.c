@@ -344,8 +344,10 @@ PyObject *Rb2Py_Tuple(VALUE obj) {
 
 int convertPyArgs(PyObject *argv, VALUE **rb_argv_p) {
   DEBUG_MARKER;
-  if (!PyTuple_CheckExact(argv))
+  if (!PyTuple_CheckExact(argv)) {
+    DEBUG_MSG("TODO: Handle Errors");
     return -1;
+  }
 
   int arglen = (int)PyTuple_Size(argv);
   (*rb_argv_p) = (VALUE *)malloc(sizeof(VALUE)*arglen);
@@ -355,7 +357,14 @@ int convertPyArgs(PyObject *argv, VALUE **rb_argv_p) {
   return arglen;
 }
 
-int convertRbArgs(VALUE *argv, PyObject **py_arg_p) {
+int convertRbArgs(VALUE argv, PyObject **py_argv_p) {
   DEBUG_MARKER;
-  return 0;
+  Check_Type(argv, T_ARRAY);
+
+  int arglen = (int)RARRAY_LEN(argv);
+  (*py_argv_p) = PyTuple_New(arglen);
+
+  for (int idx = 0; idx < arglen; ++idx)
+    PyTuple_SetItem((*py_argv_p), idx, RB2PY(RARRAY_AREF(argv, idx)));
+  return arglen;
 }
