@@ -82,6 +82,21 @@ VALUE rb_cRubython_PyObject_callableq(VALUE self) {
 
 void Init_PyObject() {
   DEBUG_MARKER;
+
+  // TODO:
+  //   * Formalize what should be accessible via method_missing -- If we call
+  //     `obj.foo`, should we get back the method instance or the result of
+  //     calling `obj.foo()`?
+  //
+  //     Maybe this can depend upon whether the object is a callable/whether
+  //     arguments were passed. If no arguments are passed, the default behavior
+  //     could be to return the method instance. If the the method is called with
+  //     an '!' appended, then it should be called even with no arguments. If
+  //     arguments are passed, then the method should be called with those
+  //     arguments. This _should_ cover pretty much every base.
+  //
+  //   * Properly support calling methods with arguments from Ruby.
+
   rb_cPyObject = rb_define_class_under(rb_mPyTypes, "PyObject", rb_cData);
   rb_undef_alloc_func(rb_cPyObject);
 

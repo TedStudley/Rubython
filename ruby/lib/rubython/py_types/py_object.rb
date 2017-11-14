@@ -15,8 +15,6 @@ module Rubython
           end
           return py_attr
         rescue Exception => e
-          require 'pry'
-          binding.pry
           super
         end
         super

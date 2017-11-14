@@ -14,38 +14,36 @@
 
 // TODO: Do this _WITHOUT_ a gigantic if/else statement. It's not _that_ bad, but it's still pretty bad.
 VALUE Py2Rb_Object(PyObject *obj) {
-  PY2RB_SWITCH;
-  // Module type
-  PY2RB_CASE(Module);
-  // Class type
-  PY2RB_CASE(Class);
-  PY2RB_CASE(Instance);
-  // Function types
-  PY2RB_CASE(Function);
-  PY2RB_CASE(CFunction);
-  PY2RB_CASE(Method);
-  // Code type
-  PY2RB_CASE(Code);
-  // Type type
-  PY2RB_CASE(Type);
+  DEBUG_MARKER;
+  VALUE rb_obj = Qundef;
+
+  // TODO: Need to create some sort of PyTypeObject -> Convertor map to give this
+  // crap sub linear time complexity in the number of handled types.
+  if (PyString_Check(obj))
+    rb_obj = Py2Rb_String(obj);
+  else if (PyFunction_Check(obj))
+    rb_obj = Py2Rb_Function(obj);
+  else if (PyCFunction_Check(obj))
+    rb_obj = Py2Rb_CFunction(obj);
+  else if (PyType_Check(obj))
+    rb_obj = Py2Rb_Type(obj);
   // Nil/None
-  PY2RB_CASE_NONE; // We need a special-case for None
-  // TODO: Ellipsis type
-  // TODO: NotImplemented type
+  else if (obj == Py_None)
+    rb_obj = Qnil;
   // Bool type
-  PY2RB_CASE(Bool);
-  // Container types
-  PY2RB_CASE(List);
-  PY2RB_CASE(Dict);
-  PY2RB_CASE(Tuple);
-  PY2RB_CASE(Set);
-  // String types
-  PY2RB_CASE(String);
+  else if (PyBool_Check(obj))
+    rb_obj = Py2Rb_Bool(obj);
   // Numeric types
-  PY2RB_CASE(Int);
-  PY2RB_CASE(Long);
-  PY2RB_CASE(Float);
-  PY2RB_DEFAULT;
+  else if (PyInt_Check(obj))
+    rb_obj = Py2Rb_Int(obj);
+  else if (PyLong_Check(obj))
+    rb_obj = Py2Rb_Long(obj);
+  else if (PyFloat_Check(obj))
+    rb_obj = Py2Rb_Float(obj);
+  else
+    rb_obj = rb_cRubython_PyObject__wrap(obj);
+
+  return rb_obj;
 }
 
 // Module Converter

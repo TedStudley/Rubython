@@ -25,7 +25,7 @@ describe PyContext do
   it 'should not be initialized before first use' do
     expect(PyContext.get_instance).to be_nil
     context = PyContext.new
-    exepct(PyContext.get_instance).not_to be_nil
+    expect(PyContext.get_instance).not_to be_nil
   end
 
   it 'should share the same instance between all wrappers' do
@@ -65,12 +65,12 @@ describe PyContext do
 
   it 'should be able to list the local variables in a context' do
     context = PyContext.new
-    expect(context.local_variables.inspect).to eq('{}')
+    expect(context.local_variables.inspect).to match(/module '__builtin__' \(built-in\)/)
   end
 
   it 'should be able to list the global variables in a context' do
     context = PyContext.new
-    expect(context.global_variables.inspect).to eq('{}')
+    expect(context.global_variables.inspect).to match(/module '__builtin__' \(built-in\)/)
   end
 
   it 'should properly refresh the context state between context instances' do

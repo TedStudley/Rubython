@@ -5,14 +5,21 @@
 
 #include "config.h"
 
-#define DEBUG_MSG(c_str) \
-  fprintf(stderr, "DEBUG: %s: %s:%d <%s>\n", c_str, __FILE__, __LINE__, __func__)
-#define DEBUG_MARKER \
-  DEBUG_MSG("<<MARK>>")
-#define REPR(obj) \
-  PyString_AS_STRING(PyObject_Repr((PyObject *)(obj)))
-#define DEBUG_VAR(obj) \
-  fprintf(stderr, "%s=%s\n", #obj, REPR(obj))
+#if defined(DEBUG)
+# define DEBUG_MSG(c_str) \
+    fprintf(stderr, "DEBUG: %s: %s:%d <%s>\n", c_str, __FILE__, __LINE__, __func__)
+# define DEBUG_MARKER \
+    DEBUG_MSG("<<MARK>>")
+# define REPR(obj) \
+    PyString_AS_STRING(PyObject_Repr((PyObject *)(obj)))
+# define DEBUG_VAR(obj) \
+    fprintf(stderr, "%s=%s\n", #obj, REPR(obj))
+#else // defined(DEBUG)
+# define DEBUG_MSG(c_str)
+# define DEBUG_MARKER
+# define REPR(obj)
+# define DEBUG_VAR
+#endif // defined(DEBUG)
 
 #define Py_INCREF_RETURN(obj) \
   Py_INCREF(obj); return (obj)

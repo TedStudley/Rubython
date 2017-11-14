@@ -10,19 +10,6 @@
 #define PY2RB_FORWARD(type) \
   VALUE Py2Rb_##type(PyObject *obj);
 
-#define PY2RB_SWITCH \
-  if (0) assert(1 != 1)
-
-#define PY2RB_CASE(type) \
-  else if (Py##type##_Check(obj)) \
-    return Py2Rb_##type(obj)
-
-#define PY2RB_CASE_NONE \
-  else if (obj == Py_None) return Qnil
-
-#define PY2RB_DEFAULT \
-  else return rb_cRubython_PyObject__wrap(obj)
-
 #define RB_ASSERT_PYTYPE(type) \
   if (!Py##type##_Check(obj)) \
     rb_raise(rb_eTypeError, "Expected Python ##type## type, but got '%s'", \
