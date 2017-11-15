@@ -1,6 +1,10 @@
 #ifndef HEADER__PY_RB_STRING_H__INCLUDED
 #define HEADER__PY_RB_STRING_H__INCLUDED
 
+#include "Python.h"
+#include "structmember.h"
+#include "ruby.h"
+
 typedef union py_Rubython_RbStringStruct {
   py_Rubython_RbObject object;
   struct {

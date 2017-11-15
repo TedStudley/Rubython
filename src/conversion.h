@@ -2,7 +2,7 @@
 #define HEADER__CONVERSION_H__INCLUDED
 
 #include "ruby.h"
-#include "python/Python.h"
+#include "Python.h"
 
 #define PY2RB(value) \
   Py2Rb_Object((value))

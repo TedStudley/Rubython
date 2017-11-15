@@ -2,8 +2,8 @@
 #define HEADER__RB_PY_FUNCTION_H__INCLUDED
 
 #include "ruby.h"
-#include "python/Python.h"
-#include "python/funcobject.h"
+#include "Python.h"
+#include "funcobject.h"
 
 extern VALUE rb_mPyTypes, rb_cPyFunction;
 

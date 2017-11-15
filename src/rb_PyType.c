@@ -1,6 +1,6 @@
 #include "ruby.h"
-#include "python/Python.h"
-#include "python/object.h"
+#include "Python.h"
+#include "object.h"
 
 #include "utility.h"
 #include "conversion.h"

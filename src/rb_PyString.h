@@ -2,8 +2,8 @@
 #define HEADER__RB_PY_STRING_H__INCLUDED
 
 #include "ruby.h"
-#include "python/Python.h"
-#include "python/stringobject.h"
+#include "Python.h"
+#include "stringobject.h"
 
 extern VALUE rb_mPyTypes, rb_cPyString;
 

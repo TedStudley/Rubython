@@ -1,7 +1,6 @@
 #ifndef HEADER__RB_RUBYTHON_H__INCLUDED
 #define HEADER__RB_RUBYTHON_H__INCLUDED
 
-#include "Python/python.h"
 #include "ruby.h"
 
 #define ASSERT_PY_NOT_INITIALIZED \

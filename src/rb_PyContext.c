@@ -1,6 +1,6 @@
-#include "python/Python.h"
-#include "python/frameobject.h"
-#include "python/code.h"
+#include "Python.h"
+#include "frameobject.h"
+#include "code.h"
 
 #include "utility.h"
 #include "conversion.h"

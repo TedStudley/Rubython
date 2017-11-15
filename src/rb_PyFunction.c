@@ -1,4 +1,4 @@
-#include "python/Python.h"
+#include "Python.h"
 #include "ruby.h"
 
 #include "utility.h"

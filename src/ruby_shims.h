@@ -3,7 +3,7 @@
 
 #define RUBY_VM_THREAD_MODEL 2
 
-#include "ruby/ruby.h"
+#include "ruby.h"
 #include "ruby/st.h"
 
 // TODO: Scrape all this crap automatically

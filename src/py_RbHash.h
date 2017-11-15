@@ -1,6 +1,9 @@
 #ifndef HEADER__PY_RB_HASH_H__INCLUDED
 #define HEADER__PY_RB_HASH_H__INCLUDED
 
+#include "Python.h"
+#include "ruby.h"
+
 #include "py_RbObject.h"
 
 typedef union py_Rubython_RbHashStruct {

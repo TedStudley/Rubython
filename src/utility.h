@@ -1,7 +1,7 @@
 #ifndef HEADER__UTILITY_H__INCLUDED
 #define HEADER__UTILITY_H__INCLUDED
 
-#include "ruby/ruby.h"
+#include "ruby.h"
 
 #include "config.h"
 

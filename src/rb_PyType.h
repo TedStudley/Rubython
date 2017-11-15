@@ -2,8 +2,8 @@
 #define HEADER__RB_PYTYPE_H__INCLUDED
 
 #include "ruby.h"
-#include "python/Python.h"
-#include "python/object.h"
+#include "Python.h"
+#include "object.h"
 
 extern VALUE rb_mPyTypes, rb_cPyType;
 

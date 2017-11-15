@@ -1,6 +1,6 @@
-#include "python/Python.h"
-#include "ruby/ruby.h"
-#include "python/structmember.h"
+#include "Python.h"
+#include "ruby.h"
+#include "structmember.h"
 
 #include "utility.h"
 #include "conversion.h"

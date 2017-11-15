@@ -50,29 +50,44 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-find_package(PythonLibs)
-if(PYTHONLIBS_FOUND)
-  include_directories(${PYTHON_INCLUDE_DIRS})
-else(PYTHONLIBS_FOUND)
-  message(FATAL_ERROR "Could not locate python libraries")
-endif(PYTHONLIBS_FOUND)
-
-set(CFLAGS "-dynamic -pipe -fno-common -fno-strict-aliasing -Wall -Wstrict-prototypes -Wdeprecated -Wno-unused-function -Wno-unused-variable")
+set(CFLAGS "-dynamic -pipe -fno-common -fno-strict-aliasing -Wall -Wstrict-prototypes -Wdeprecated -Wno-unused-function -Wno-unused-variable -std=c99")
 set(LDFLAGS "-dynamic -fPIC -Bstatic -fstack-protector -Wl,-undefined,dynamic_lookup")
 
 if(APPLE)
-  set(CFLAGS_SHARED "${CFLAGS} -Wshorten-64-to-32 -mmacosx-version-min=10.7")
-  set(LDFLAGS_SHARED "${LDFLAGS} -bundle -Wl,-multiply_defined,suppress")
+  find_package(PythonLibs)
+  if(PYTHONLIBS_FOUND)
+    message(STATUS ${PYTHON_INCLUDE_DIRS})
+    include_directories(${PYTHON_INCLUDE_DIRS})
+  else(PYTHONLIBS_FOUND)
+    message(FATAL_ERROR "Could not locate python libraries")
+  endif(PYTHONLIBS_FOUND)
+
+  # TODO: Don't hardcode these
+  set(PY_SUFFIX ".so")
+  set(RB_SUFFIX ".bundle")
+
+  set(CFLAGS "${CFLAGS} -Wshorten-64-to-32 -mmacosx-version-min=10.7")
+  set(LDFLAGS "${LDFLAGS} -bundle -Wl,-multiply_defined,suppress")
   set(LIBRARIES ${LIBRARIES} dl objc) # z pthread
 else(APPLE)
-  set(CFLAGS_SHARED "${CFLAGS}")
-  set(LDFLAGS_SHARED "${LDFLAGS}")
+  # TODO: Fix this
+  include_directories("/usr/local/python2.7/include/python2.7")
+  set(PYTHON_LIBRARIES "python2.7")
+
+  # TODO: Don't hardcode these
+  set(PY_SUFFIX ".so")
+  set(RB_SUFFIX ".so")
+
+  # TODO: ???
+  set(CFLAGS "${CFLAGS}")
+  set(LDFLAGS "${LDFLAGS}")
   set(LIBRARIES ${LIBRARIES})
 endif(APPLE)
 
 set(DEBUG TRUE)
-  set(CFLAGS "${CFLAGS} -O0 -g3 -fPIC")
 if(DEBUG)
+  set(CFLAGS "${CFLAGS} -O0 -g3 -fPIC")
+else(DEBUG)
   set(CFLAGS "${CFLAGS} -O3")
 endif(DEBUG)
 
@@ -82,7 +97,7 @@ set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
     COMPILE_FLAGS "${CFLAGS}"
     LINK_FLAGS "${LDFLAGS}"
-    PREFIX "" SUFFIX ".bundle" # TODO: Don't hardcode this
+    PREFIX "" SUFFIX ${RB_SUFFIX}
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ruby/"
     EXCLUDE_FROM_ALL TRUE)
 
@@ -91,7 +106,7 @@ add_library(${PROJECT_NAME}_python_ext MODULE ${SOURCES})
 target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES} ${RUBY_LIBRARY_PATH})
 set_target_properties(${PROJECT_NAME}_python_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
-    PREFIX "" SUFFIX ".so" # TODO: Don't hardcode this.
+    PREFIX "" SUFFIX ${PY_SUFFIX}
     COMPILE_FLAGS ${CFLAGS}
     LINK_FLAGS ${LDFLAGS}
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/"

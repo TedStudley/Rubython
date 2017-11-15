@@ -1,7 +1,7 @@
 #ifndef RUBY_ASSERT_H
 #define RUBY_ASSERT_H
 
-#include "ruby/ruby.h"
+#include "ruby.h"
 
 #if defined(__cplusplus)
 extern "C" {

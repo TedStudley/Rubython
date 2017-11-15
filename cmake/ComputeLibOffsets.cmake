@@ -5,9 +5,19 @@ macro(COMPUTE_LIB_OFFSET LIBPATH SYMBOL VARIABLE)
       PATHS ENV PATH)
   get_filename_component(LIBNAME ${LIBPATH} NAME)
 
+  if(APPLE)
+    set(OBJDUMP_FLAGS --demangle -T)
+    set(OBJDUMP_SECTGREP SECT)
+  else(APPLE)
+    # Assume Unix?
+    # TODO: Actually handle this...
+    set(OBJDUMP_FLAGS --demangle -t)
+    set(OBJDUMP_SECTGREP "[FO]")
+  endif(APPLE)
+
   execute_process(
-      COMMAND ${OBJDUMP_EXECUTABLE} --demangle -T ${LIBPATH}
-      COMMAND grep "SECT"
+      COMMAND ${OBJDUMP_EXECUTABLE} ${OBJDUMP_FLAGS} ${LIBPATH}
+      COMMAND grep "\\b${OBJDUMP_SECTGREP}\\b"
       COMMAND grep -w "${SYMBOL}"
       COMMAND awk "{ print \"0x\"$1 }"
       COMMAND head -n1
@@ -22,7 +32,7 @@ macro(COMPUTE_LIB_OFFSET LIBPATH SYMBOL VARIABLE)
     set(${VARIABLE} ${SYMBOL_ADDR} CACHE INTERNAL "COMPUTE_LIB_OFFSET ${LIBPATH} ${SYMBOL} missing")
   else()
     if(NOT CMAKE_REQUIRED_QUIET)
-      message(STATUS "Locating symbol ${SYMBOL} in ${LIBNAME} - True")
+      message(STATUS "Locating symbol ${SYMBOL} in ${LIBNAME} - ${SYMBOL_ADDR}")
     endif()
     set(${VARIABLE} ${SYMBOL_ADDR} CACHE INTERNAL "COMPUTE_LIB_OFFSET ${LIBPATH} ${SYMBOL}")
   endif()

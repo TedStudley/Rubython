@@ -1,7 +1,9 @@
 #ifndef HEADER__PY_RB_OBJECT_H__INCLUDED
 #define HEADER__PY_RB_OBJECT_H__INCLUDED
 
-#include "python/structmember.h"
+#include "Python.h"
+#include "structmember.h"
+#include "ruby.h"
 
 typedef struct  py_Rubython_RbObjectStruct {
   PyObject_HEAD;

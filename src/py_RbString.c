@@ -1,5 +1,5 @@
-#include "python/Python.h"
-#include "ruby/ruby.h"
+#include "Python.h"
+#include "ruby.h"
 
 #include "utility.h"
 #include "conversion.h"

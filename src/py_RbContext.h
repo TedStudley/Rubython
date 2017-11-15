@@ -1,7 +1,8 @@
 #ifndef HEADER__PY_RB_CONTEXT_H__INCLUDED
 #define HEADER__PY_RB_CONTEXT_H__INCLUDED
 
-#include "python/structmember.h"
+#include "Python.h"
+#include "ruby.h"
 
 typedef struct py_Rubython_RbContextStruct {
   PyObject_HEAD;

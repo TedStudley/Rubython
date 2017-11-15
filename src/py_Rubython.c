@@ -1,6 +1,5 @@
-#include "python/Python.h"
+#include "Python.h"
 #include "ruby.h"
-#include "ruby/debug.h"
 
 #include "utility.h"
 #include "py_Rubython.h"

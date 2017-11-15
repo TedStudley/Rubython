@@ -1,7 +1,9 @@
 #ifndef HEADER__RB_PY_CONTEXT_H__INCLUDED
 #define HEADER__RB_PY_CONTEXT_H__INCLUDED
 
-#include "python/frameobject.h"
+#include "ruby.h"
+#include "Python.h"
+#include "frameobject.h"
 
 extern
 VALUE rb_mRubython, rb_cPyContext;

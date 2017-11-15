@@ -1,7 +1,7 @@
 #ifndef HEADER__RUBY_SHIM_H__INCLUDED
 #define HEADER__RUBY_SHIM_H__INCLUDED
 
-#include "ruby/ruby.h"
+#include "ruby.h"
 
 struct rb_thread_struct;
 
