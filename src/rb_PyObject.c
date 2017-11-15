@@ -60,6 +60,22 @@ rb_cRubython_PyObject_inspect(VALUE self) {
 }
 
 VALUE
+rb_cRubython_PyObject_hasattr(VALUE self, VALUE rb_key) {
+  DEBUG_MARKER;
+  GET_PYOBJECT;
+  const char *key;
+  if (RB_TYPE_P(rb_key, T_STRING)) {
+    key = RSTRING_PTR(rb_key);
+  } else if (SYMBOL_P(rb_key)) {
+    key = rb_id2name(SYM2ID(rb_key));
+  } else {
+    rb_raise(rb_eTypeError, "Expected string or symbol");
+  }
+
+  return (PyObject_HasAttrString(py_object, key) ? Qtrue : Qfalse);
+}
+
+VALUE
 rb_cRubython_PyObject_getattr(VALUE self, VALUE rb_key) {
   DEBUG_MARKER;
   GET_PYOBJECT;
@@ -88,16 +104,14 @@ VALUE
 rb_cRubython_PyObject_call(VALUE self, VALUE args) {
   DEBUG_MARKER;
   GET_PYOBJECT;
-  PyObject *py_result, *py_args;
+  PyObject *py_result, *py_args, *py_err;
   VALUE result = Qundef;
 
   convertRbArgs(args, &py_args);
   // TODO: Support kwargs
   py_result = PyObject_Call(py_object, py_args, NULL);
-  if (py_result == NULL) {
-    DEBUG_MSG("TODO: Handle Errors!");
-    rb_raise(rb_eTypeError, "'<type>' object is not callable");
-  }
+  if (py_result == NULL)
+    HandlePyErrors("TODO: Handle Errors!");
 
   return PY2RB(py_result);
 }
@@ -118,6 +132,9 @@ void Init_PyObject() {
   //     arguments. This _should_ cover pretty much every base.
   //
   //   * Properly support calling methods with arguments from Ruby.
+  //
+  //   * Implement `native` and `deep_native` methods to convert Python types
+  //     to their Ruby counterparts.
 
   rb_cPyObject = rb_define_class_under(rb_mPyTypes, "PyObject", rb_cData);
   rb_undef_alloc_func(rb_cPyObject);
@@ -125,6 +142,7 @@ void Init_PyObject() {
   rb_define_method(rb_cPyObject, "to_s", rb_cRubython_PyObject_to_s, 0);
   rb_define_method(rb_cPyObject, "inspect", rb_cRubython_PyObject_inspect, 0);
 
+  rb_define_method(rb_cPyObject, "hasattr", rb_cRubython_PyObject_hasattr, 1);
   rb_define_method(rb_cPyObject, "getattr", rb_cRubython_PyObject_getattr, 1);
   rb_define_method(rb_cPyObject, "call", rb_cRubython_PyObject_call, -2);
 }

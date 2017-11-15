@@ -159,6 +159,9 @@ py_cRubython_RbContext_s_finalize(py_Rubython_RbContext *cls, PyObject *dummy) {
   py_Rubython_RbContext *instance;
   int state = 0;
 
+  // TODO: Block teardown if the context is the host for the process
+  // (How to figure that out?)
+
   if (rbcontext_instance_p == NULL)
     Py_RETURN_NONE;
   // Release the master reference to the rbcontext instance

@@ -2,6 +2,7 @@
 #include "conversion.h"
 // Ruby PyTypes
 #include "rb_PyObject.h"
+#include "rb_PyDict.h"
 #include "rb_PyFunction.h"
 #include "rb_PyCFunction.h"
 #include "rb_PyType.h"
@@ -12,29 +13,36 @@
 #include "py_RbArray.h"
 #include "py_RbHash.h"
 
-// TODO: Do this _WITHOUT_ a gigantic if/else statement. It's not _that_ bad, but it's still pretty bad.
 VALUE Py2Rb_Object(PyObject *obj) {
   DEBUG_MARKER;
   VALUE rb_obj = Qundef;
 
   // TODO: Need to create some sort of PyTypeObject -> Convertor map to give this
   // crap sub linear time complexity in the number of handled types.
-  if (PyString_Check(obj))
+  if (PyString_Check(obj)) {
+    DEBUG_MSG("PyStringObject");
     rb_obj = Py2Rb_String(obj);
-  else if (PyFunction_Check(obj))
+  } else if (PyDict_Check(obj)) {
+    rb_obj = Py2Rb_Dict(obj);
+  } else if (PyFunction_Check(obj)) {
+    DEBUG_MSG("PyFunctionObject");
     rb_obj = Py2Rb_Function(obj);
-  else if (PyCFunction_Check(obj))
+  } else if (PyCFunction_Check(obj)) {
+    DEBUG_MSG("PyCFunctionObject");
     rb_obj = Py2Rb_CFunction(obj);
-  else if (PyType_Check(obj))
+  } else if (PyType_Check(obj)) {
+    DEBUG_MSG("PyTypeObject");
     rb_obj = Py2Rb_Type(obj);
   // Nil/None
-  else if (obj == Py_None)
+  } else if (obj == Py_None) {
+    DEBUG_MSG("Py_None");
     rb_obj = Qnil;
   // Bool type
-  else if (PyBool_Check(obj))
+  } else if (PyBool_Check(obj)) {
+    DEBUG_MSG("Py_Bool");
     rb_obj = Py2Rb_Bool(obj);
   // Numeric types
-  else if (PyInt_Check(obj))
+  } else if (PyInt_Check(obj))
     rb_obj = Py2Rb_Int(obj);
   else if (PyLong_Check(obj))
     rb_obj = Py2Rb_Long(obj);
@@ -103,7 +111,7 @@ PY2RB_CONVERTER(List) {
 // }
 
 PY2RB_CONVERTER(Dict) {
-  PY2RB_DEFAULT_CONVERSION;
+  PY2RB_WRAP(Dict);
 }
 // VALUE Py2Rb_Dict(PyObject *value) {
 //   assert(PyDict_Check(value));

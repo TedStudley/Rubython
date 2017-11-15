@@ -5,6 +5,8 @@
 
 #include "config.h"
 
+#define DEBUG 1
+
 #if defined(DEBUG)
 # define DEBUG_MSG(c_str) \
     fprintf(stderr, "DEBUG: %s: %s:%d <%s>\n", c_str, __FILE__, __LINE__, __func__)
@@ -32,8 +34,10 @@ char *read_file(const char *filename);
 
 VALUE rb_method_call_protect(int argc, const VALUE *argv, VALUE method, int *state);
 VALUE rb_funcall_protect(int *state, VALUE obj, ID id, int argc, ...);
+VALUE rb_funcall2_protect(VALUE obj, ID id, int argc, const VALUE *argv, int *state);
 VALUE rb_obj_method_protect(VALUE obj, VALUE vid, int *state);
 
-void PyErrorHandler(const char *format, ...);
+void HandlePyErrors(const char *format, ...);
+void HandleRbErrors(const char *format, ...);
 
 #endif // HEADER__UTILITY_H__INCLUDED

@@ -5,6 +5,7 @@ set(SOURCES
   rb_PyContext.c
   rb_PyTypes.c
   rb_PyObject.c
+  rb_PyDict.c
   rb_PyType.c
   rb_PyString.c
   rb_PyFunction.c

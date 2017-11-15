@@ -49,11 +49,13 @@ typedef struct rb_method_call_args_struct {
 
 static VALUE
 __rb_method_call_protect(VALUE argsplat) {
+  DEBUG_MARKER;
   rb_method_call_args_t *args = (rb_method_call_args_t *)argsplat;
   return rb_method_call(args->argc, args->argv, args->method);
 }
 
 VALUE rb_method_call_protect(int argc, const VALUE *argv, VALUE method, int *state) {
+  DEBUG_MARKER;
   rb_method_call_args_t args = {argc, argv, method};
   return rb_protect(__rb_method_call_protect, (VALUE) &args, state);
 }
@@ -67,11 +69,13 @@ typedef struct rb_funcall_args_struct {
 
 static VALUE
 __rb_funcall_protect(VALUE argsplat) {
+  DEBUG_MARKER;
   rb_funcall_args_t *args = (rb_funcall_args_t *)argsplat;
   return rb_funcallv(args->obj, args->id, args->argc, args->argv);
 }
 
 VALUE rb_funcall_protect(int *state, VALUE obj, ID id, int argc, ...) {
+  DEBUG_MARKER;
   VALUE *rbargv = NULL, result;
   va_list argv;
 
@@ -88,6 +92,14 @@ VALUE rb_funcall_protect(int *state, VALUE obj, ID id, int argc, ...) {
   return result;
 }
 
+VALUE rb_funcall2_protect(VALUE obj, ID id, int argc, const VALUE *argv, int *state) {
+  DEBUG_MARKER;
+  VALUE result;
+  rb_funcall_args_t args = {obj, id, argc, argv};
+  result = rb_protect(__rb_funcall_protect, (VALUE) &args, state);
+  return result;
+}
+
 typedef struct rb_obj_method_args_struct {
   VALUE obj;
   VALUE vid;
@@ -95,49 +107,55 @@ typedef struct rb_obj_method_args_struct {
 
 static VALUE
 __rb_obj_method_protect(VALUE argsplat) {
+  DEBUG_MARKER;
   rb_obj_method_args_t *args = (rb_obj_method_args_t *)argsplat;
   return rb_obj_method(args->obj, args->vid);
 }
 
 VALUE
 rb_obj_method_protect(VALUE obj, VALUE vid, int *state) {
+  DEBUG_MARKER;
   rb_obj_method_args_t args = {obj, vid};
   return rb_protect(__rb_obj_method_protect, (VALUE) &args, state);
 }
 
-void PyErrorHandler(const char *format, ...) {
-  PyObject *errobj, *errdata, *errtraceback, *pystring;
-  PyErr_Fetch(&errobj, &errdata, &errtraceback);
+void HandlePyErrors(const char *format, ...) {
+  DEBUG_MARKER;
+  PyObject *err_type = NULL, *err_value = NULL, *err_traceback = NULL,
+           *py_str = NULL;
+  if (!PyErr_Occurred())
+    return
 
-  pystring = NULL;
-  if (errobj != NULL &&
-      (pystring = PyObject_Str(errobj)) != NULL &&
-      (PyString_Check(pystring)))
-    strcpy(save_error_type, PyString_AsString(pystring));
+  PyErr_Fetch(&err_type, &err_value, &err_traceback);
+
+  if (err_type != NULL &&
+      (py_str = PyObject_Str(err_type)) != NULL &&
+      (PyString_Check(py_str)))
+    strcpy(save_error_type, PyString_AsString(py_str));
   else
     strcpy(save_error_type, "<unknown exception type>");
-  // Py_XDECREF(pystring);
+  Py_XDECREF(py_str);
 
-  pystring = NULL;
-  if (errdata != NULL &&
-      (pystring = PyObject_Str(errdata)) != NULL &&
-      (PyString_Check(pystring)))
-    strcpy(save_error_info, PyString_AsString(pystring));
+  if (err_value != NULL &&
+      (py_str = PyObject_Str(err_value)) != NULL &&
+      (PyString_Check(py_str)))
+    strcpy(save_error_info, PyString_AsString(py_str));
   else
-    strcpy(save_error_info, "<unknown exception data>");
-  // Py_XDECREF(pystring);
+    strcpy(save_error_info, "<unkown exception data>");
+  Py_XDECREF(py_str);
 
-  // Py_XDECREF(errobj);
-  // Py_XDECREF(errdata);
-  // Py_XDECREF(errtraceback);
+  // TODO: Traceback!
+  Py_XDECREF(err_type);
+  Py_XDECREF(err_value);
+  Py_XDECREF(err_traceback);
 
   va_list args;
   va_start(args, format);
   vsprintf(save_c_error, format, args);
   vfprintf(stderr, format, args);
   va_end(args);
-  rb_raise(rb_eRuntimeError, "%s :: Received python error %s: %s",
+
+  // TODO: Dynamic error type based on Python error (or PyException Exception/Wrapper?)
+  rb_raise(rb_eRuntimeError, "%s :: recieved python error %s: %s",
       save_c_error, save_error_type, save_error_info);
-  // rb_raise(rb_eRuntimeError, "%s :: Received python error %s: %s",
-  //       "nope", save_error_type, save_error_info);
 }

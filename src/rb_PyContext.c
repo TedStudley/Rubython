@@ -6,6 +6,7 @@
 #include "conversion.h"
 #include "rb_Rubython.h"
 #include "rb_PyContext.h"
+#include "py_Rubython.h"
 
 #define GET_PYCONTEXT \
   rb_Rubython_PyContext *py_context; \
@@ -70,6 +71,9 @@ InitPython(void) {
     return NULL;
   }
 
+  // Initialize Rubython on the other side
+  initrubython_ext();
+
   // TODO: Handle Errors.
   return thread_state;
 };
@@ -115,6 +119,9 @@ static VALUE rb_cRubython_PyContext_s_finalize(VALUE self) {
   DEBUG_MARKER;
   VALUE instance;
   rb_Rubython_PyContext *py_context;
+
+  // TODO: Block teardown if the context is the host for the process
+  // (How to figure that out?)
 
   if (pycontext_instance_p == NULL)
     return Qnil;

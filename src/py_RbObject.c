@@ -125,15 +125,19 @@ py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject 
   DEBUG_MARKER;
   VALUE rb_result = Qundef, *rb_argv_ = NULL;
   PyObject *result = NULL;
-  int state = 0;
-  if (!rb_obj_is_method(self->as.value)) {
+  int argc, state = 0;
+  ID id_call;
+
+  id_call = rb_intern("call");
+  if (!rb_respond_to(self->as.value, id_call)) {
+    DEBUG_MSG("TODO: Better Errors!");
     // TODO: Better errors
     PyErr_SetString(PyExc_RuntimeError, "Object is not callable");
-    Py_RETURN_NONE;
+    return NULL;
   }
 
-  int argc = convertPyArgs(args, &rb_argv_);
-  rb_result = rb_method_call_protect(argc, rb_argv_, self->as.value, &state);
+  argc = convertPyArgs(args, &rb_argv_);
+  rb_result = rb_funcall2_protect(self->as.value, id_call, argc, rb_argv_, &state);
   free(rb_argv_);
   if (state) {
     DEBUG_MSG("TODO: Handle Errors!");
