@@ -4,9 +4,10 @@ file(GLOB_RECURSE PYTHON_SPEC_SOURCES
 
 message(STATUS ${PYTHON_SPEC_SOURCES})
 
+message(STATUS ${PYTHON})
 add_custom_target(python_spec
   COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/../.
-  COMMAND /usr/bin/env mamba
+  COMMAND python2 -mmamba.cli
   DEPENDS rubython_python_module
   DEPENDS ${PYTHON_SPEC_SOURCES}
   WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/..")

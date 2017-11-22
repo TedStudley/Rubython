@@ -5,46 +5,41 @@
 #include "structmember.h"
 #include "ruby.h"
 
-typedef struct  py_Rubython_RbObjectStruct {
-  PyObject_HEAD;
+#define PyRbObject_HEAD \
+  PyObject_HEAD;\
+  PyObject *context
+
+typedef struct py_Rubython_RbObjectStruct {
+  PyRbObject_HEAD;
   union {
     VALUE value;
-    struct RObject *rb_object;
+    struct RObject *ptr;
   } as;
 } py_Rubython_RbObject;
+#define RBOBJECT_CONTEXT(ptr) (((py_Rubython_RbObject *)(ptr))->context)
+#define RBOBJECT_PTR(ptr) (((py_Rubython_RbObject *)(ptr))->as.ptr)
+#define RBOBJECT_VALUE(ptr) (((py_Rubython_RbObject *)(ptr))->as.value)
 
 extern PyObject *py_cRbObject;
 extern PyTypeObject py_Rubython_RbObject_type;
 
-static void
-py_cRubython_RbObject_s_dealloc(py_Rubython_RbObject *self);
+static int py_cRubython_RbObject_tp_traverse(PyObject *self, visitproc visit, void *arg);
+static void py_cRubython_RbObject_tp_dealloc(PyObject *self);
+static int py_cRubython_RbObject_tp_clear(PyObject *self);
+static PyObject * py_cRubython_RbObject_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+static int py_cRubython_RbObject_tp_init(PyObject *self, PyObject *args, PyObject *kwds);
 
-static PyObject *
-py_cRubython_RbObject_getattr(py_Rubython_RbObject *self, const char *attr_name);
-static PyObject *
-py_cRubython_RbObject_setattr(py_Rubython_RbObject *self, const char *attr_name, PyObject *value);
+static PyObject *py_cRubython_RbObject_tp_getattr(PyObject *self, const char *attr_name);
 
-static PyObject *
-py_cRubython_RbObject_repr(py_Rubython_RbObject *self);
+static PyObject *py_cRubython_RbObject_tp_call(PyObject *self, PyObject *args, PyObject *other);
 
-static PyObject *
-py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject *other);
+static PyObject *py_cRubython_RbObject_tp_str(PyObject *self);
+static PyObject *py_cRubython_RbObject_tp_repr(PyObject *self);
 
-static PyObject *
-py_cRubython_RbObject_str(py_Rubython_RbObject *self);
+PyObject *RbObject_WRAP_BASE(PyTypeObject *type, VALUE ptr);
+PyObject *RbObject_WRAP(VALUE ptr);
 
-static int
-py_cRubython_RbObject_s_clear(py_Rubython_RbObject *self);
-
-PyObject *
-py_cRubython_RbObject_s_wrap(PyTypeObject *type, VALUE obj);
-PyObject *RbObjectWrap(VALUE obj);
-
-static PyObject *
-py_cRubython_RbObject_s_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-
-static int
-py_cRubython_RbObject_init(py_Rubython_RbObject *self, PyObject *args, PyObject *kwds);
+static PyObject *py_cRubython_RbObject_context(PyObject *self);
 
 void init_Rubython_RbObject(void);
 

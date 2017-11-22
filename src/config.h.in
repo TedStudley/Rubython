@@ -1,6 +1,8 @@
 #ifndef _CONFIGURATION_HEADER_GUARD_H_
 #define _CONFIGURATION_HEADER_GUARD_H_
 
+#cmakedefine DEBUG @DEBUG@
+
 // Computed offset of rb_ary_new
 #cmakedefine RB_ARY_NEW_OFFSET @RB_ARY_NEW_OFFSET@
 

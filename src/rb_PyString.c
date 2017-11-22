@@ -1,5 +1,5 @@
-#include "Python.h"
 #include "ruby.h"
+#include "Python.h"
 
 #include "utility.h"
 #include "conversion.h"
@@ -34,60 +34,50 @@ const rb_data_type_t rb_Rubython_PyString_type = {
   RUBY_TYPED_FREE_IMMEDIATELY,
 };
 
-#define GET_PYSTRING \
-  rb_Rubython_PyString *py_string; \
-  TypedData_Get_Struct(self, rb_Rubython_PyString, &rb_Rubython_PyString_type, py_string);
-
-VALUE rb_cRubython_PyString__wrap(void *ptr) {
+VALUE PyString_WRAP(PyObject *ptr) {
   DEBUG_MARKER;
-  rb_Rubython_PyString *py_string = ptr;
-  VALUE rb_obj = TypedData_Wrap_Struct(rb_cPyString, &rb_Rubython_PyString_type, py_string);
-  return rb_obj;
+
+  Py_INCREF(ptr);
+  VALUE self = TypedData_Wrap_Struct(rb_cPyString, &rb_Rubython_PyString_type, ptr);
+  rb_funcall(self, rb_intern("initialize"), 0);
+  return self;
 }
 
 static st_index_t
-rb_cRubython_PyString_hash(PyObject *py_string) {
+rb_cRubython_PyString_hash(PyStringObject *str) {
   DEBUG_MARKER;
-  return rb_memhash((const void *)PyString_AsString(py_string), PyString_Size(py_string)) ^ 0;
+  // TODO: Actually support encodings. (Maybe just convert to a Ruby string?)
+  return rb_memhash((const void *)PyString_AS_STRING(str), PyString_GET_SIZE(str)) ^ 0;
 }
 
 VALUE
 rb_cRubython_PyString_hash_m(VALUE self) {
   DEBUG_MARKER;
-  GET_PYSTRING;
-  st_index_t hval = rb_cRubython_PyString_hash((PyObject *)(py_string));
-  return INT2FIX(hval);
+  return INT2FIX(rb_cRubython_PyString_hash(PYSTRING_PTR(self)));
 }
 
 VALUE
 rb_cRubython_PyString_eq(VALUE self, VALUE other) {
   DEBUG_MARKER;
-  GET_PYSTRING;
-  VALUE rb_str;
 
   if (self == other)
     return Qtrue;
+  if (rb_typeddata_is_kind_of(other, &rb_Rubython_PyString_type))
+    return (_PyString_Eq(PYSTRING_OBJPTR(self), PYSTRING_OBJPTR(other)) ? Qtrue : Qfalse);
 
-  if (rb_typeddata_is_kind_of(other, &rb_Rubython_PyString_type)) {
-    PyStringObject *py_other;
-    TypedData_Get_Struct(self, rb_Rubython_PyString, &rb_Rubython_PyString_type, py_other);
-    return (_PyString_Eq((PyObject *)(py_string), (PyObject *)(py_other)) ? Qtrue : Qfalse);
-  }
-
-  rb_str = rb_str_new2(PyString_AS_STRING(py_string));
+  VALUE rb_str = Py2RbRaw_String(PYSTRING_OBJPTR(self));
   return rb_funcall(rb_str, rb_intern("=="), 1, other);
 }
 
 VALUE rb_cRubython_PyString_to_s(VALUE self) {
   DEBUG_MARKER;
-  GET_PYSTRING;
-  return rb_str_new2(PyString_AS_STRING(py_string));
+
+  return Py2RbRaw_String(PYSTRING_OBJPTR(self));
 }
 
 VALUE rb_cRubython_PyString_inspect(VALUE self) {
   DEBUG_MARKER;
-  GET_PYSTRING;
-  return rb_str_new2(PyString_AS_STRING(PyString_Repr((PyObject *)(py_string), 1)));
+  return Py2RbRaw_String(PyString_Repr(PYSTRING_OBJPTR(self), 1));
 }
 
 void Init_PyString() {

@@ -3,7 +3,7 @@
 
 #include "ruby.h"
 
-extern VALUE rb_mRubython, rb_mPyTypes;
+extern VALUE rb_mPyTypes;
 
 void Init_PyTypes();
 

@@ -4,11 +4,13 @@
 
 #include "utility.h"
 #include "conversion.h"
+#include "py_RbContext.h"
 #include "py_RbTypes.h"
 #include "py_RbObject.h"
+#include "py_error.h"
 
-static PyMethodDef py_cRubython_RbObject_methods[];
-static PyMemberDef py_cRubython_RbObject_members[];
+static PyMethodDef py_cRubython_RbObject_tp_methods[];
+static PyMemberDef py_cRubython_RbObject_tp_members[];
 
 PyObject *py_cRbObject;
 
@@ -17,76 +19,91 @@ PyTypeObject py_Rubython_RbObject_type = {
     "rubython.rubython_ext.rb_types.RbObject",
     sizeof(py_Rubython_RbObject),
     0,
-    (destructor)py_cRubython_RbObject_s_dealloc, // tp_dealloc
+    (destructor)py_cRubython_RbObject_tp_dealloc, // tp_dealloc
     0, // (printfunc) tp_print
-    (getattrfunc)py_cRubython_RbObject_getattr, // tp_getattr
-    (setattrfunc)py_cRubython_RbObject_setattr, // tp_setattr
+    (getattrfunc)py_cRubython_RbObject_tp_getattr, // tp_getattr
+    0, // (setattrfunc)py_cRubython_RbObject_tp_setattr, // tp_setattr
     0, // (PyAsyncMethods *) tp_as_async
-    (reprfunc)py_cRubython_RbObject_repr, // tp_repr
+    (reprfunc)py_cRubython_RbObject_tp_repr, // tp_repr
     0, // (PyNumberMethods *) tp_as_number
     0, // (PySequenceMethods *) tp_as_sequence
     0, // (PyMappingMethods *) tp_as_mapping
     0, // (hashfunc) tp_hash
-    (ternaryfunc)py_cRubython_RbObject_call, // tp_call
-    (reprfunc)py_cRubython_RbObject_str, // tp_str
+    (ternaryfunc)py_cRubython_RbObject_tp_call, // tp_call
+    (reprfunc)py_cRubython_RbObject_tp_str, // tp_str
     0, // (getattrofunc) tp_getattro
     0, // (setattrofunc) tp_setattro
     0, // (PyBufferProcs *) tp_as_buffer
     Py_TPFLAGS_DEFAULT |
-        Py_TPFLAGS_BASETYPE, // tp_flags
+        Py_TPFLAGS_BASETYPE |
+        Py_TPFLAGS_HAVE_GC, // tp_flags
     "Rubython Ruby Object", // tp_doc
-    0, // (traverseproc) tp_traverse
-    (inquiry)py_cRubython_RbObject_s_clear, // tp_clear
+    (traverseproc)py_cRubython_RbObject_tp_traverse, // (traverseproc) tp_traverse
+    (inquiry)py_cRubython_RbObject_tp_clear, // tp_clear
     0, // (richcmpfunc) tp_richcompare
     0, // (Py_ssize_t) tp_weaklistoffset
     0, // (getiterfunc) tp_iter
     0, // (iternextfunc) tp_iternext
-    py_cRubython_RbObject_methods, // tp_methods
-    py_cRubython_RbObject_members, // tp_members
+    py_cRubython_RbObject_tp_methods, // tp_methods
+    py_cRubython_RbObject_tp_members, // tp_members
     0, // (PyGetSetDef *) tp_getset
     0, // (_typeobject) *tp_base
     0, // (PyObject *) tp_dict;
     0, // (descrgetfunc) tp_descr_get
     0, // (descrsetfunc) tp_descr_set
     0, // (Py_ssize_t) tp_dictoffset;
-    (initproc)py_cRubython_RbObject_init, // tp_init
+    (initproc)py_cRubython_RbObject_tp_init, // tp_init
     0, // (allocfunc) tp_alloc
-    (newfunc)py_cRubython_RbObject_s_new, // tp_new
+    (newfunc)py_cRubython_RbObject_tp_new, // tp_new
     0, // (freefunc) tp_free
 };
+#define PyRbObject_Check(ob) PyObject_TypeCheck((ob), (PyTypeObject *)(py_cRbObject))
 
 static void
-py_cRubython_RbObject_s_dealloc(py_Rubython_RbObject *self) {
+py_cRubython_RbObject_tp_dealloc(PyObject *self) {
   DEBUG_MARKER;
-  PyObject_GC_UnTrack(self);
-  py_cRubython_RbObject_s_clear(self);
-  Py_TYPE(self)->tp_free((PyObject *)(self));
+  py_cRubython_RbObject_tp_clear(self);
+  Py_TYPE(self)->tp_free(self);
+}
+
+static int
+py_cRubython_RbObject_tp_clear(PyObject *self) {
+  DEBUG_MARKER;
+  // This might be a problem, since it isn't actually an RObject pointer...
+  rb_gc_unregister_address(&RBOBJECT_VALUE(self));
+  RBOBJECT_VALUE(self) = Qundef;
+  Py_CLEAR(RBOBJECT_CONTEXT(self));
+
+  return 0;
+}
+
+static int
+py_cRubython_RbObject_tp_traverse(PyObject *self, visitproc visit, void *arg) {
+  DEBUG_MARKER;
+  return 0;
 }
 
 static PyObject *
-py_cRubython_RbObject_getattr(py_Rubython_RbObject *self, const char *attr_name) {
+py_cRubython_RbObject_tp_getattr(PyObject *self, const char *attr_name) {
   DEBUG_MARKER;
   PyObject *attr = NULL;
   VALUE rb_attr = Qundef;
   int state = 0;
 
   // Check if there's an attr on our PyObject, first
-  attr = PyObject_GenericGetAttr((PyObject *)(self), PyUnicode_FromString(attr_name));
+  attr = PyObject_GenericGetAttr(self, PyUnicode_FromString(attr_name));
   if (attr == NULL) {
     // Catch the error and clear it
     PyErr_Clear();
 
     // Try to look up a ruby attribute
-    rb_attr = rb_attr_get(self->as.value, rb_intern(attr_name));
+    rb_attr = rb_attr_get(RBOBJECT_VALUE(self), rb_intern(attr_name));
     if (rb_attr == Qnil) {
       // Next, check if there's an attr(method/ivar) by that name on self
-      rb_attr = rb_obj_method_protect(self->as.value, rb_str_new_cstr(attr_name), &state);
+      rb_attr = rb_obj_method_protect(RBOBJECT_VALUE(self), rb_str_new_cstr(attr_name), &state);
       if (state) {
-        // TODO: Handle errors
-        DEBUG_MSG("TODO: Handle errors");
-        rb_attr = rb_errinfo();
-        rb_funcall(rb_mKernel, rb_intern("p"), 1, rb_attr);
-        Py_RETURN_NONE;
+        HandleRbErrors("TODO: Better Errors");
+        return NULL;
       }
     }
     attr = RB2PY(rb_attr);
@@ -95,33 +112,24 @@ py_cRubython_RbObject_getattr(py_Rubython_RbObject *self, const char *attr_name)
 }
 
 static PyObject *
-py_cRubython_RbObject_setattr(py_Rubython_RbObject *self, const char *attr_name, PyObject *value) {
+py_cRubython_RbObject_tp_repr(PyObject *self) {
   DEBUG_MARKER;
-  PyErr_SetString(PyExc_RuntimeError, "Use rb_eval to set attributes, not setattr.");
-  // TODO: Support setting ruby instance vars
-  return NULL;
-}
-
-static PyObject *
-py_cRubython_RbObject_repr(py_Rubython_RbObject *self) {
-  DEBUG_MARKER;
+  PyObject *py_repr = NULL;
   VALUE rb_repr = Qundef;
   int state = 0;
 
-  rb_repr = rb_funcall_protect(&state, self->as.value, rb_intern("inspect"), 0);
+  rb_repr = rb_funcall_protect(&state, RBOBJECT_VALUE(self), rb_intern("inspect"), 0);
   if (state) {
-    // TODO: Handle errors
-    DEBUG_MSG("TODO: Handle errors");
+    HandleRbErrors("TODO: Better Errors");
+    return NULL;
   }
 
-  char *obj_repr = StringValueCStr(rb_repr);
-  PyObject *py_repr = PyString_FromString(obj_repr);
-  Py_INCREF(py_repr);
-  return py_repr;
+  py_repr = Rb2PyRaw_String(rb_repr);
+  Py_RETURN(py_repr);
 }
 
 static PyObject *
-py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject *other) {
+py_cRubython_RbObject_tp_call(PyObject *self, PyObject *args, PyObject *other) {
   DEBUG_MARKER;
   VALUE rb_result = Qundef, *rb_argv_ = NULL;
   PyObject *result = NULL;
@@ -129,88 +137,94 @@ py_cRubython_RbObject_call(py_Rubython_RbObject *self, PyObject *args, PyObject 
   ID id_call;
 
   id_call = rb_intern("call");
-  if (!rb_respond_to(self->as.value, id_call)) {
-    DEBUG_MSG("TODO: Better Errors!");
-    // TODO: Better errors
-    PyErr_SetString(PyExc_RuntimeError, "Object is not callable");
+  if (!rb_respond_to(RBOBJECT_VALUE(self), id_call)) {
+    HandleRbErrors("Object is not callable");
     return NULL;
   }
 
   argc = convertPyArgs(args, &rb_argv_);
-  rb_result = rb_funcall2_protect(self->as.value, id_call, argc, rb_argv_, &state);
+  rb_result = rb_funcall2_protect(RBOBJECT_VALUE(self), id_call, argc, rb_argv_, &state);
   free(rb_argv_);
   if (state) {
-    DEBUG_MSG("TODO: Handle Errors!");
-    rb_result = rb_errinfo();
-    rb_funcall(rb_mKernel, rb_intern("p"), 1, rb_result);
+    HandleRbErrors("TODO: Better Errors!");
+    return NULL;
   }
   result = RB2PY(rb_result);
   Py_RETURN(result);
 }
 
 static PyObject *
-py_cRubython_RbObject_str(py_Rubython_RbObject *self) {
+py_cRubython_RbObject_tp_str(PyObject *self) {
   DEBUG_MARKER;
   VALUE rb_str = Qundef;
   int state = 0;
 
-  rb_str = rb_funcall_protect(&state, self->as.value, rb_intern("to_s"), 0);
+  rb_str = rb_funcall_protect(&state, RBOBJECT_VALUE(self), rb_intern("to_s"), 0);
   if (state) {
-    // TODO: Handle errors
-    DEBUG_MSG("TODO: Handle Errors");
+    HandleRbErrors("TODO: Better Errors");
+    return NULL;
   }
 
-  char *obj_str = StringValueCStr(rb_str);
-  PyObject *py_str = PyString_FromString(obj_str);
-  Py_INCREF(py_str);
-  return py_str;
-}
-
-static int
-py_cRubython_RbObject_s_clear(py_Rubython_RbObject *self) {
-  DEBUG_MARKER;
-  // This might be a problem, since it isn't actually an RObject pointer...
-  self->as.value = Qundef;
-  rb_gc_unregister_address(&self->as.value);
-
-  return 0;
+  PyObject *py_str = Rb2PyRaw_String(rb_str);
+  Py_RETURN(py_str);
 }
 
 PyObject *
-py_cRubython_RbObject_s_wrap(PyTypeObject *type, VALUE rb_object) {
+RbObject_WRAP_BASE(PyTypeObject *type, VALUE ptr) {
   DEBUG_MARKER;
-  py_Rubython_RbObject *self = (py_Rubython_RbObject *)(type->tp_alloc(type, 0));
-
-  ((py_Rubython_RbObject *)(self))->as.value = rb_object;
-  rb_gc_register_address(&self->as.value);
-
-  return (PyObject *)(self);
+  PyObject *self = type->tp_alloc(type, 0);
+  ((py_Rubython_RbObject *)(self))->as.value = ptr;
+  if (type->tp_init(self, NULL, NULL))
+    return NULL;
+  rb_gc_register_address(&RBOBJECT_VALUE(self));
+  return self;
 }
+
 PyObject *
-RbObjectWrap(VALUE obj) {
+RbObject_WRAP(VALUE ptr) {
   DEBUG_MARKER;
-  return py_cRubython_RbObject_s_wrap(&py_Rubython_RbObject_type, obj);
+
+  return RbObject_WRAP_BASE((PyTypeObject *)(py_cRbObject), ptr);
 }
 
 static PyObject *
-py_cRubython_RbObject_s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+py_cRubython_RbObject_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   DEBUG_MARKER;
-  PyErr_SetString(PyExc_RuntimeError, "Cannot allocate an object of type RbObject from python!");
+  PyErr_SetString(py_eRubythonError, "Cannot allocate an object of type RbObject from python!");
   return NULL;
 }
 
 static int
-py_cRubython_RbObject_init(py_Rubython_RbObject *self, PyObject *args, PyObject *kwds) {
+py_cRubython_RbObject_tp_init(PyObject *self, PyObject *args, PyObject *kwds) {
   DEBUG_MARKER;
-  PyErr_SetString(PyExc_RuntimeError, "Cannot init an object of type RbObject from python!");
-  return -1;
+
+  if (rbcontext_instance_p == NULL)
+    // Something funky is going on
+    return -1;
+
+  RBOBJECT_CONTEXT(self) = (*rbcontext_instance_p);
+  Py_INCREF(RBOBJECT_CONTEXT(self));
+
+  return 0;
 }
 
-static PyMemberDef py_cRubython_RbObject_members[] = {
+static PyObject *
+py_cRubython_RbObject_is_valid(PyObject *self, PyObject *args, PyObject *kwds) {
+  DEBUG_MARKER;
+  return py_cRubython_RbContext_is_valid(RBOBJECT_CONTEXT(self));
+}
+
+static PyMemberDef
+py_cRubython_RbObject_tp_members[] = {
+  {"__context__", T_OBJECT, offsetof(py_Rubython_RbObject, context), 0,
+    PyDoc_STR("The owning context")},
   {NULL}
 };
 
-static PyMethodDef py_cRubython_RbObject_methods[] = {
+static PyMethodDef
+py_cRubython_RbObject_tp_methods[] = {
+  {"is_valid", (PyCFunction)py_cRubython_RbObject_is_valid, METH_NOARGS,
+    "Returns whether or not the wrapper reference is still valid"},
   {NULL}
 };
 

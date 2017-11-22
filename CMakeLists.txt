@@ -12,6 +12,8 @@ endif()
 
 set(CMAKE_INSTALL_PATH_USE_LINK_PATH TRUE)
 
+set(DEBUG TRUE)
+
 # Include additional required CMAKE modules.
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}

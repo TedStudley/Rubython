@@ -46,7 +46,7 @@ function(__match_rb_config_opt opt var)
 
   if (HAS_${var})
     if(NOT CMAKE_REQUIRED_QUIET)
-      message(STATUS "Looking for ${var} - found")
+      message(STATUS "Looking for ${var} - ${CMAKE_MATCH_1}")
     endif()
     set(${var} ${CMAKE_MATCH_1} CACHE INTERNAL "FIND_RUBY_DIRS ${opt}")
   else()

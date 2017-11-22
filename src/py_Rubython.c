@@ -3,6 +3,7 @@
 
 #include "utility.h"
 #include "py_Rubython.h"
+#include "py_error.h"
 #include "py_RbContext.h"
 #include "py_RbTypes.h"
 #include "py_RbObject.h"
@@ -29,5 +30,6 @@ initrubython_ext(void) {
   Py_INCREF(py_mRubython);
 
   init_Rubython_RbContext();
+  init_Rubython_RubythonError();
   init_Rubython_RbTypes();
 }

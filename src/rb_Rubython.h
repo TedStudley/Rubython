@@ -11,7 +11,7 @@
   if (!Py_IsInitialized()) \
     rb_raise(rb_eRuntimeError, "Rubython is not initialized yet!");
 
-extern VALUE rb_mRubython;
+extern VALUE rb_mRubython, rb_eRubythonError;
 
 void Init_rubython_ext(void);
 

@@ -5,32 +5,32 @@
 #include "structmember.h"
 #include "ruby.h"
 
-typedef union py_Rubython_RbStringStruct {
-  py_Rubython_RbObject object;
-  struct {
-    PyObject_HEAD
-    union {
-      VALUE value;
-      struct RString *rb_string;
-    } as;
-  } string;
+typedef struct py_Rubython_RbStringStruct {
+  PyRbObject_HEAD;
+  union {
+    VALUE value;
+    struct RString *ptr;
+  } as;
 } py_Rubython_RbString;
+#define RBSTRING_PTR(ptr) (((py_Rubython_RbString *)(ptr))->as.ptr)
+#define RBSTRING_VALUE(ptr) (((py_Rubython_RbString *)(ptr))->as.value)
 
 extern PyObject *py_cRbString;
 extern PyTypeObject py_Rubython_RbString_type;
-
-static PyBufferProcs py_cRubython_RbString_tp_as_buffer;
 
 Py_ssize_t py_cRubython_RbString_bf_getreadbuffer(py_Rubython_RbString *self, Py_ssize_t segment, void **ptrptr);
 Py_ssize_t py_cRubython_RbString_bf_getsegcount(py_Rubython_RbString *self, Py_ssize_t *lenp);
 Py_ssize_t py_cRubython_RbString_bf_getcharbuffer(py_Rubython_RbString *self, Py_ssize_t segment, char **ptrptr);
 
-PyObject *
-py_cRubython_RbString_s_wrap(PyTypeObject *type, VALUE obj);
-PyObject *RbStringWrap(VALUE obj);
+PyObject *RbString_WRAP(VALUE ptr);
+PyObject *RbString_Wrap(VALUE ptr);
 
 static PyObject *
-py_cRubython_RbString_str(py_Rubython_RbString *self);
+py_cRubython_RbString_tp_richcompare(PyObject *self, PyObject *other, int opid);
+static long
+py_cRubython_RbString_tp_hash(py_Rubython_RbString *self);
+static PyObject *
+py_cRubython_RbString_tp_str(py_Rubython_RbString *self);
 
 void init_Rubython_RbString(void);
 

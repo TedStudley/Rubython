@@ -32,26 +32,32 @@ PyTypeObject py_Rubython_RbHash_type = {
   Py_TPFLAGS_DEFAULT, // tp_flags
   "Rubython Ruby Hash", // tp_doc
 };
+#define PyRbHashObject (&py_Rubython_RbHash_type)
+#define PyRbHash_Check(op) ((op)->ob_type == PyRbHashObject)
 
 PyObject *
-py_cRubython_RbHash_s_wrap(PyTypeObject *type, VALUE obj) {
+RbHash_WRAP(VALUE ptr) {
   DEBUG_MARKER;
-  py_Rubython_RbHash *self = NULL;
-  self = (py_Rubython_RbHash *)py_cRubython_RbObject_s_wrap(type, obj);
 
-  return (PyObject *)(self);
+  return RbObject_WRAP_BASE(PyRbHashObject, ptr);
 }
 
 PyObject *
-RbHashWrap(VALUE obj) {
+RbHash_Wrap(VALUE ptr) {
   DEBUG_MARKER;
-  return py_cRubython_RbHash_s_wrap(&py_Rubython_RbHash_type, obj);
+
+  if (!RB_TYPE_P(ptr, RUBY_T_HASH)) {
+    PyErr_Format(PyExc_TypeError, "Expected Ruby Hash type, but got '%s'",
+        rb_obj_classname(ptr));
+    return NULL;
+  }
+  return RbHash_WRAP(ptr);
 }
 
 Py_ssize_t
 py_cRubython_RbHash_mp_length(py_Rubython_RbHash *self) {
   DEBUG_MARKER;
-  return RHASH_SIZE(self->hash.as.value);
+  return RHASH_SIZE(self->as.value);
 }
 
 PyObject *
@@ -60,6 +66,7 @@ py_cRubython_RbHash_mp_subscript(py_Rubython_RbHash *self, PyObject *key) {
   VALUE rb_result = Qundef, rb_key = Qundef;
   PyObject *result = NULL;
 
+  // TODO: Forward call to Hash#[]
   if (PyNumber_Check(key)) {
     if (PyFloat_Check(key)) {
       rb_key = PyFloat_AS_DOUBLE(key);
@@ -75,16 +82,42 @@ py_cRubython_RbHash_mp_subscript(py_Rubython_RbHash *self, PyObject *key) {
     return NULL;
   }
 
-  rb_result = rb_hash_aref(self->hash.as.value, rb_key);
+  rb_result = rb_hash_aref(self->as.value, rb_key);
   result = RB2PY(rb_result);
   Py_RETURN(result);
+}
+
+PyObject *
+py_cRubython_RbHash_mp_ass_subscript(py_Rubython_RbHash *self, PyObject *key, PyObject *value) {
+  DEBUG_MARKER;
+  VALUE rb_result = Qundef, rb_key = Qundef, rb_value = Qundef;
+
+  // TODO: Forward call to Hash#[]=
+  if (PyNumber_Check(key)) {
+    if (PyFloat_Check(key)) {
+      rb_key = PyFloat_AS_DOUBLE(key);
+    } else if (PyLong_Check(key)) {
+      rb_key = PyLong_AsLong(key);
+    } else {
+      rb_key = PyNumber_AsSsize_t(key, NULL);
+    }
+  } else if (PyObject_TypeCheck(key, &py_Rubython_RbObject_type)) {
+    rb_key = ((py_Rubython_RbObject *)(key))->as.value;
+  } else {
+    PyErr_SetString(PyExc_KeyError, "RbHash lookup can only be performed with constants or RbObject instances");
+    return NULL;
+  }
+
+  rb_value = PY2RB(value);
+  rb_result = rb_hash_aset(self->as.value, rb_key, rb_value);
+  return value;
 }
 
 static PyMappingMethods py_cRubython_RbHash_as_mapping = {
   (lenfunc)py_cRubython_RbHash_mp_length, // mp_length
   (binaryfunc)py_cRubython_RbHash_mp_subscript, // mp_subscript
   // TODO: Support this.
-  0, // mp_ass_subscript
+  (objobjargproc)py_cRubython_RbHash_mp_ass_subscript, // mp_ass_subscript
 };
 
 void init_Rubython_RbHash(void) {

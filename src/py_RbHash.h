@@ -6,24 +6,21 @@
 
 #include "py_RbObject.h"
 
-typedef union py_Rubython_RbHashStruct {
-  py_Rubython_RbObject object;
-  struct {
-    PyObject_HEAD
-    union {
-      VALUE value;
-      struct RHash *rb_hash;
-    } as;
-  } hash;
+typedef struct py_Rubython_RbHashStruct {
+  PyRbObject_HEAD;
+  union {
+    VALUE value;
+    struct RHash *ptr;
+  } as;
 } py_Rubython_RbHash;
+#define RBHASH_PTR(ptr) (((py_Rubython_RbHash *)(ptr))->as.ptr)
+#define RBHASH_VALUE(ptr) (((py_Rubython_RbHash *)(ptr))->as.value)
 
 extern PyObject *py_cRbHash;
 extern PyTypeObject py_Rubython_RbHash_type;
 
-PyObject *
-py_cRubython_RbHash_s_wrap(PyTypeObject *type, VALUE obj);
-PyObject *
-RbHashWrap(VALUE obj);
+PyObject *RbHash_WRAP(VALUE ptr);
+PyObject *RbHash_Wrap(VALUE ptr);
 
 void init_Rubython_RbHash(void);
 

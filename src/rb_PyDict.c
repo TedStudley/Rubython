@@ -16,19 +16,18 @@ VALUE rb_cPyDict;
 
 static void rb_cRubython_PyDict__mark(void *ptr) {
   DEBUG_MARKER;
-  rb_Rubython_PyDict *py_dict = ptr;
-  Py_XINCREF(py_dict);
 }
 
 static void rb_cRubython_PyDict__free(void *ptr) {
   DEBUG_MARKER;
-  rb_Rubython_PyDict *py_dict = ptr;
-  Py_XDECREF(py_dict);
+  Py_DECREF(ptr);
 }
 
 static size_t rb_cRubython_PyDict__memsize(const void *ptr) {
   DEBUG_MARKER;
   const rb_Rubython_PyDict *py_dict = ptr;
+
+  // TODO: I don't think this actually works properly
   return sizeof(py_dict) + Py_SIZE(py_dict);
 }
 
@@ -39,36 +38,56 @@ const rb_data_type_t rb_Rubython_PyDict_type = {
   RUBY_TYPED_FREE_IMMEDIATELY
 };
 
-VALUE rb_cRubython_PyDict__wrap(void *ptr) {
+VALUE PyDict_WRAP(PyObject *ptr) {
   DEBUG_MARKER;
-  rb_Rubython_PyDict *py_dict = ptr;
-  return TypedData_Wrap_Struct(rb_cPyDict, &rb_Rubython_PyDict_type, py_dict);
+
+  Py_INCREF(ptr);
+  VALUE self = TypedData_Wrap_Struct(rb_cPyDict, &rb_Rubython_PyDict_type, ptr);
+  rb_funcall(self, rb_intern("initialize"), 0);
+  return self;
 }
 
-VALUE
-rb_cRubython_PyDict_to_hash(VALUE vobj) {
-  GET_PYDICT;
-  PyObject *py_dictitems, *py_dictitem,
-           *py_key, *py_value;
-  VALUE rb_hash = rb_hash_new();
-  int dict_size;
+static VALUE
+rb_cRubython_PyDict_to_hash(VALUE self) {
+  DEBUG_MARKER;
+  return Py2RbRaw_Dict(PYDICT_OBJPTR(self));
+}
 
-  rb_hash = rb_hash_new();
-  py_dictitems = PyDict_Items((PyObject *)(self));
-  dict_size = PyDict_Size((PyObject *)self);
-  for (int idx = 0; idx < dict_size; ++idx) {
-    py_dictitem = PyList_GetItem(py_dictitems, idx);
-    py_key = PyTuple_GetItem(py_dictitem, 0);
-    py_value = PyTuple_GetItem(py_dictitem, 1);
-    rb_hash_aset(rb_hash, PY2RB(py_key), PY2RB(py_value));
+static VALUE
+rb_cRubython_PyDict_aref(VALUE self, VALUE key) {
+  DEBUG_MARKER;
+  PyObject *py_value = NULL;
+
+  py_value = PyDict_GetItem(PYDICT_OBJPTR(self), RB2PY(key));
+  if (py_value == NULL) {
+    HandlePyErrors("Error occurred while grabbing from PyDict");
+    // If we get here, then there just wasn't a value for that key
+    return Qnil;
   }
-  return rb_hash;
+
+  return PY2RB(py_value);
 }
 
-void Init_PyDict() {
+static VALUE
+rb_cRubython_PyDict_aset(VALUE self, VALUE key, VALUE value) {
+  DEBUG_MARKER;
+
+  if (PyDict_SetItem(PYDICT_OBJPTR(self), RB2PY(key), RB2PY(value))) {
+    HandlePyErrors("Error occurring when storing in PyDict");
+    assert(0); // If we got here, something is funky.
+  }
+
+  return value;
+}
+
+void Init_PyDict(void) {
   DEBUG_MARKER;
   rb_cPyDict = rb_define_class_under(rb_mPyTypes, "PyDict", rb_cPyObject);
 
   rb_define_method(rb_cPyDict, "to_hash", rb_cRubython_PyDict_to_hash, 0);
   rb_define_method(rb_cPyDict, "to_h", rb_cRubython_PyDict_to_hash, 0);
+  // TODO: Support deep/shallow 'to_ruby' method
+
+  rb_define_method(rb_cPyDict, "[]", rb_cRubython_PyDict_aref, 1);
+  rb_define_method(rb_cPyDict, "[]=", rb_cRubython_PyDict_aset, 2);
 }

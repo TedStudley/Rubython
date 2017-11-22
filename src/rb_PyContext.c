@@ -78,7 +78,7 @@ InitPython(void) {
   return thread_state;
 };
 
-static VALUE *pycontext_instance_p = NULL;
+VALUE *pycontext_instance_p = NULL;
 static VALUE
 rb_cRubython_PyContext_s_allocate(VALUE klass) {
   DEBUG_MARKER;
@@ -87,26 +87,34 @@ rb_cRubython_PyContext_s_allocate(VALUE klass) {
   VALUE obj;
 
   if (pycontext_instance_p == NULL) {
-    DEBUG_MARKER;
     rb_Rubython_PyContext *instance = NULL;
     pycontext_instance_p = (VALUE *)malloc(sizeof(VALUE));
     (*pycontext_instance_p) = \
         TypedData_Make_Struct(rb_cPyContext, rb_Rubython_PyContext, &rb_Rubython_PyContext_type, instance);
 
-    // Start up Python
-    py_thread = InitPython();
-    if (py_thread == NULL) {
-      DEBUG_MSG("TODO: Handle Errors!");
-      rb_raise(rb_eRuntimeError, "Failed to initialize Python");
+    // Check if there's a current python context already. If there is, we're
+    // most likely running as the guest interpreter.
+    if (PyThreadState_GET() == NULL) {
+      DEBUG_MARKER;
+      // Start up Python
+      py_thread = InitPython();
+      if (py_thread == NULL) {
+        DEBUG_MSG("TODO: Handle Errors!");
+        rb_raise(rb_eRuntimeError, "Failed to initialize Python");
+      }
+    } else {
+      DEBUG_PRINTF("RUNNING AS GUEST INTERPRETER!");
     }
-
-    // TODO: Ensure things aren't messed up if we hit an error
-    instance->filename = 0;
-    instance->py_frame = NULL;
   }
   return (*pycontext_instance_p);
 }
 
+/* Returns the current PyContext instance. If there is no active Python context,
+ * either because one was never created or the previous one was torn down, then
+ * nil will be returned.
+ *
+ * @return [PyContext] the current PyContext instance
+ */
 static VALUE rb_cRubython_PyContext_s_get_instance(VALUE self) {
   DEBUG_MARKER;
   if (pycontext_instance_p == NULL)
@@ -115,6 +123,14 @@ static VALUE rb_cRubython_PyContext_s_get_instance(VALUE self) {
   return (*pycontext_instance_p);
 }
 
+/* Completely tears down the current PyContext instance.
+ *
+ * This will finalize the current Python context so that a new Python context
+ * can be created, and will completely invalidate all borrowed references from
+ * the currently active Python context.
+ *
+ * @return [nil]
+ */
 static VALUE rb_cRubython_PyContext_s_finalize(VALUE self) {
   DEBUG_MARKER;
   VALUE instance;
@@ -186,6 +202,14 @@ initialize_python_context(rb_Rubython_PyContext *self) {
   return py_frame;
 }
 
+/* Document-method PyContext.new
+ *
+ * Test
+ */
+
+/*
+ * @returns [PyContext]
+ */
 static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self) {
   DEBUG_MARKER;
   ASSERT_PY_INITIALIZED;
@@ -215,6 +239,12 @@ static VALUE rb_cRubython_PyContext_initialize(int argc, VALUE *argv, VALUE self
   return self;
 }
 
+static VALUE
+rb_cRubython_PyContext_is_validq(VALUE self) {
+  DEBUG_MARKER;
+  return (((pycontext_instance_p == NULL) || ((*pycontext_instance_p) != self)) ? Qfalse : Qtrue);
+}
+
 static VALUE rb_cRubython_PyContext_builtins(VALUE self) {
   DEBUG_MARKER;
   GET_PYCONTEXT;
@@ -236,13 +266,72 @@ static VALUE rb_cRubython_PyContext_local_variables(VALUE self) {
   return PY2RB(PyEval_GetLocals());
 }
 
-static VALUE rb_cRubython_PyContext_modules(VALUE self) {
+static PyObject *
+pycontext_load_name(PyFrameObject *f, const char *n) {
+  DEBUG_MARKER;
+  PyObject *v;
+
+  v = PyObject_GetItem(f->f_locals, PyString_FromString(n));
+  if (v == NULL && PyErr_Occurred()) {
+    if (!PyErr_ExceptionMatches(PyExc_KeyError))
+      HandlePyErrors("Error attempting lookup from frame locals");
+    PyErr_Clear();
+  }
+
+  if (v == NULL) {
+    v = PyDict_GetItemString(f->f_globals, n);
+    if (v == NULL) {
+      v = PyDict_GetItemString(f->f_builtins, n);
+      if (v == NULL) {
+        DEBUG_MSG("TODO: Better Errors");
+        return NULL;
+      }
+    }
+  }
+
+  return v;
+}
+
+/*
+ * @return [Object] the matching object from the Python context
+ */
+static VALUE
+rb_cRubython_PyContext_method_missing(int argc, VALUE *argv, VALUE self) {
   DEBUG_MARKER;
   GET_PYCONTEXT;
   CHECK_CONTEXT_HEALTH;
-  return Qnil;
-}
+  VALUE mid, org_mid, sym, v;
+  PyObject *py_obj;
+  const char *mname;
 
+  rb_check_arity(argc, 1, UNLIMITED_ARGUMENTS);
+  mid = org_mid = argv[0];
+  sym = rb_check_symbol(&mid);
+  if (!NIL_P(sym)) mid = rb_sym2str(sym);
+  mname = StringValueCStr(mid);
+  if (!mname)
+    rb_raise(rb_eRuntimeError, "fail: unknown method or property");
+
+  py_obj = pycontext_load_name(PyThreadState_GET()->frame, mname);
+  if (py_obj == NULL) {
+    HandlePyErrors("Error attempting to load Python name");
+    return rb_call_super(argc, argv);
+  }
+
+  if (PyCallable_Check(py_obj) && !PyType_Check(py_obj)) {
+    VALUE rb_args = rb_ary_new_from_values(argc - 1, argv + 1);
+    PyObject *py_args;
+    convertRbArgs(rb_args, &py_args);
+    // TODO: Support keyword args
+    py_obj = PyObject_Call(py_obj, py_args, NULL);
+    if (py_obj == NULL) {
+      HandlePyErrors("TODO: Handle Errors!");
+      return Qundef;
+    }
+  }
+
+  return PY2RB(py_obj);
+}
 
 static PyObject *
 py_compile_and_run(VALUE self, const char *eval_str, int start) {
@@ -251,51 +340,87 @@ py_compile_and_run(VALUE self, const char *eval_str, int start) {
   CHECK_CONTEXT_HEALTH;
 
   PyCodeObject *py_code = (PyCodeObject *)Py_CompileString(eval_str, "<rubython>", start);
-  if (py_code == NULL) {
-    DEBUG_MSG("TODO: Handle Errors!");
-    PyErr_Print();
-    return 0;
-  }
-
+  if (py_code == NULL)
+    return NULL;
 
   PyFrameObject *py_main = PyThreadState_GET()->frame;
   PyFrameObject *py_frame = PyFrame_New(PyThreadState_GET(), py_code,
                                         py_main->f_globals, py_main->f_locals);
-  if (py_frame == NULL) {
-    DEBUG_MSG("TODO: Handle Errors!");
-    PyErr_Print();
-    return 0;
-  }
+  if (py_frame == NULL)
+    return NULL;
   Py_INCREF(py_frame);
 
   PyObject *py_result = PyEval_EvalFrame(py_frame);
   if (py_result == NULL) {
-    DEBUG_MSG("TODO: Handle Errors!");
-    PyErr_Print();
-    return 0;
+    Py_DECREF(py_frame);
+    return NULL;
   }
   Py_DECREF(py_frame);
 
   return py_result;
 }
 
+/* Evaluates a string within the Python context.
+ *
+ * @example Returning a string from Python
+ *   py_context.rb_eval("'foo'") # => "foo" (PyString)
+ * @example Returning an integer from Python
+ *   py_context.rb_eval("2") # => 2 (Fixnum)
+ * @example Returning the result of an expression from Python
+ *   py_context.rb_eval("7 * 6") # => 42 (Fixnum)
+ * @example Returning the result of a list comprehension from Python
+ *   py_context.rb_eval("[x * 2 for x in [1,2,3]]") # => [2, 4, 6] (PyList)
+ *
+ * @param [String] eval_str the string to be evaluated within the Python
+ *     context
+ * @return [Object] the result of evaluation from Python
+ */
 static VALUE rb_cRubython_PyContext_py_eval(VALUE self, VALUE str) {
   DEBUG_MARKER;
-  PyObject *py_str = NULL;
+  PyObject *py_result = NULL;
   Check_Type(str, T_STRING);
-  py_str = PyString_FromString(RSTRING_PTR(str));
-  return PY2RB(py_compile_and_run(self, RSTRING_PTR(str), Py_eval_input));
+
+  py_result = py_compile_and_run(self, RSTRING_PTR(str), Py_eval_input);
+  if (py_result == NULL) {
+    HandlePyErrors("Error evaluating python code");
+    return Qundef;
+  }
+
+  return PY2RB(py_result);
 }
 
+/* Executes a string within the Python context.
+ *
+ * @example Assigns the value of a Python variable
+ *   py_context.py_exec("foo = 'bar'")
+ * @example Executes the Python print statement
+ *   py_context.py_exec("print('foobar')") # foobar
+ *
+ * @param [String] eval_str the string to be executed within the Python context
+ * @return [nil]
+ */
 static VALUE rb_cRubython_PyContext_py_exec(VALUE self, VALUE str) {
   DEBUG_MARKER;
-  PyObject *py_str = NULL;
+  PyObject *py_result = NULL;
   Check_Type(str, T_STRING);
-  py_str = PyString_FromString(RSTRING_PTR(str));
-  return PY2RB(py_compile_and_run(self, RSTRING_PTR(str), Py_single_input));
+
+  py_result = py_compile_and_run(self, RSTRING_PTR(str), Py_single_input);
+  if (PyErr_Occurred()) {
+    HandlePyErrors("Error evaluating python code");
+    return Qundef;
+  }
+  return PY2RB(py_result);
 }
 
-void Init_PyContext() {
+/*
+ * Document-class: Rubython::PyContext
+ *
+ * A singleton wrapper class for the current Python context.
+ *
+ * This class serves as the Ruby side of the bridge between the Python
+ * and Ruby contexts.
+ */
+void Init_PyContext(void) {
   DEBUG_MARKER;
   rb_cPyContext = rb_define_class_under(rb_mRubython, "PyContext", rb_cObject);
 
@@ -305,11 +430,12 @@ void Init_PyContext() {
 
   rb_define_method(rb_cPyContext, "initialize", rb_cRubython_PyContext_initialize, -1);
 
+  rb_define_method(rb_cPyContext, "is_valid?", rb_cRubython_PyContext_is_validq, 0);
+
+  rb_define_method(rb_cPyContext, "method_missing", rb_cRubython_PyContext_method_missing, -1);
+
   rb_define_method(rb_cPyContext, "global_variables", rb_cRubython_PyContext_global_variables, 0);
   rb_define_method(rb_cPyContext, "local_variables", rb_cRubython_PyContext_local_variables, 0);
-
-  rb_define_method(rb_cPyContext, "builtins", rb_cRubython_PyContext_builtins, 0);
-  rb_define_method(rb_cPyContext, "modules", rb_cRubython_PyContext_modules, 0);
 
   rb_define_method(rb_cPyContext, "py_eval", rb_cRubython_PyContext_py_eval, 1);
   rb_define_method(rb_cPyContext, "py_exec", rb_cRubython_PyContext_py_exec, 1);

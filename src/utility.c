@@ -5,6 +5,8 @@
 #include "Python.h"
 
 #include "utility.h"
+#include "conversion.h"
+#include "rb_error.h"
 
 char save_error_type[1024], save_error_info[1024], save_c_error[1024];
 
@@ -24,7 +26,7 @@ read_file(const char *filename) {
   fseek(fd, 0, SEEK_END);
   fsize = ftell(fd);
   fseek(fd, 0, SEEK_SET);
-  if (fsize <= 0) {
+  if (fsize < 0) {
     DEBUG_MSG("TODO: Handle Errors!");
     return NULL;
   }
@@ -64,7 +66,7 @@ typedef struct rb_funcall_args_struct {
   VALUE obj;
   ID id;
   int argc;
-  VALUE *argv;
+  const VALUE *argv;
 } rb_funcall_args_t;
 
 static VALUE
@@ -124,7 +126,7 @@ void HandlePyErrors(const char *format, ...) {
   PyObject *err_type = NULL, *err_value = NULL, *err_traceback = NULL,
            *py_str = NULL;
   if (!PyErr_Occurred())
-    return
+    return;
 
   PyErr_Fetch(&err_type, &err_value, &err_traceback);
 
@@ -144,18 +146,57 @@ void HandlePyErrors(const char *format, ...) {
     strcpy(save_error_info, "<unkown exception data>");
   Py_XDECREF(py_str);
 
+
   // TODO: Traceback!
-  Py_XDECREF(err_type);
-  Py_XDECREF(err_value);
-  Py_XDECREF(err_traceback);
+  PyErr_Clear();
+
+  if (PyExceptionInstance_Check(err_value)) {
+    DEBUG_MARKER;
+    rb_rubython_py_error(Py2Rb_Exception(err_value));
+  }
 
   va_list args;
   va_start(args, format);
   vsprintf(save_c_error, format, args);
-  vfprintf(stderr, format, args);
   va_end(args);
+
 
   // TODO: Dynamic error type based on Python error (or PyException Exception/Wrapper?)
   rb_raise(rb_eRuntimeError, "%s :: recieved python error %s: %s",
       save_c_error, save_error_type, save_error_info);
+}
+
+void HandleRbErrors(const char *format, ...) {
+  DEBUG_MARKER;
+  VALUE err_type = Qundef, err_value = Qundef, err_traceback = Qundef,
+        rb_str = Qundef;
+
+  err_value = rb_errinfo();
+  if (err_value == Qundef)
+    return;
+
+  err_type = CLASS_OF(err_value);
+  if (err_type != Qundef &&
+      (rb_str = rb_class_name(err_type)) != Qundef &&
+      (RB_TYPE_P(rb_str, RUBY_T_STRING)))
+    strcpy(save_error_type, RSTRING_PTR(rb_str));
+  else
+    strcpy(save_error_type, "<unknown exception type>");
+
+  if (err_value != Qundef &&
+      (rb_str = rb_inspect(err_value)) != Qundef &&
+      (RB_TYPE_P(rb_str, RUBY_T_STRING)))
+    strcpy(save_error_info, RSTRING_PTR(rb_str));
+  else
+    strcpy(save_error_info, "<unknown exception data>");
+
+  va_list args;
+  va_start(args, format);
+  vsprintf(save_c_error, format, args);
+  va_end(args);
+
+  // TODO: Better errors
+  PyErr_Format(PyExc_RuntimeError, "%s :: recieved Ruby error %s: %s",
+      save_c_error, save_error_type, save_error_info);
+  return;
 }

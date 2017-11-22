@@ -15,17 +15,31 @@ static size_t rb_cRubython_PyObject__memsize(const void *ptr);
 
 extern const rb_data_type_t rb_Rubython_PyObject_type;
 
-VALUE rb_cRubython_PyObject__wrap(void *ptr);
+VALUE PyObject_WRAP(PyObject *ptr);
+static inline VALUE PyObject_Wrap(PyObject *ptr) {
+  DEBUG_MARKER;
+  return PyObject_WRAP(ptr);
+}
 
-static VALUE rb_cRubython_PyObject_initialize(int argc, VALUE *argv, VALUE self);
+#define PyObject_PTR_OF(rval,type)\
+  (PyObject *)rb_check_typeddata((rval),(type))
+#define PyObject_PTR(rval)\
+  PyObject_PTR_OF((rval),&rb_Rubython_PyObject_type)
 
-VALUE rb_cRubython_PyObject_to_s(VALUE self);
-VALUE rb_cRubython_PyObject_inspect(VALUE self);
+static VALUE rb_cRubython_PyObject_initialize(VALUE self);
 
-VALUE rb_cRubython_PyObject_call(VALUE self, VALUE args);
-VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE args);
-VALUE rb_cRubython_PyObject_py_send(VALUE self, VALUE rb_key);
+static VALUE rb_cRubython_PyObject_to_s(VALUE self);
+static VALUE rb_cRubython_PyObject_inspect(VALUE self);
 
-void Init_PyObject();
+static VALUE rb_cRubython_PyObject_methods(int argc, const VALUE *argv, VALUE self);
+static VALUE rb_cRubython_PyObject_hasattr(VALUE self, VALUE key);
+static VALUE rb_cRubython_PyObject_getattr(VALUE self, VALUE key);
+static VALUE rb_cRubython_PyObject_call(VALUE self, VALUE args);
+
+static VALUE rb_cRubython_String_to_py(VALUE self);
+static VALUE rb_cRubython_Array_to_py(VALUE self);
+static VALUE rb_cRubython_Dict_to_py(VALUE self);
+
+void Init_PyObject(void);
 
 #endif // HEADER__RB_PY_OBJECT_H__INCLUDED

@@ -6,23 +6,27 @@
 
 #include "py_RbObject.h"
 
-typedef union py_Rubython_RbArrayStruct {
-  py_Rubython_RbObject object;
-  struct {
-    PyObject_HEAD
-    union {
-      VALUE value;
-      struct RArray *rb_array;
-    } as;
-  } array;
+typedef struct py_Rubython_RbArrayStruct {
+  PyRbObject_HEAD;
+  union {
+    VALUE value;
+    struct RArray *ptr;
+  } as;
 } py_Rubython_RbArray;
+#define RBARRAY_PTR(ptr) (((py_Rubython_RbArray *)(ptr))->as.ptr)
+#define RBARRAY_VALUE(ptr) (((py_Rubython_RbArray *)(ptr))->as.value)
 
 extern PyObject *py_cRbArray;
 extern PyTypeObject py_Rubython_RbArray_type;
 
-PyObject *
-py_cRubython_RbArray_s_wrap(PyTypeObject *type, VALUE obj);
-PyObject *RbArrayWrap(VALUE obj);
+Py_ssize_t py_cRubython_RbArray_sq_length(PyObject *self);
+PyObject *py_cRubython_RbArray_sq_item(PyObject *self, Py_ssize_t idx);
+int py_cRubython_RbArray_sq_ass_item(PyObject *self, Py_ssize_t idx, PyObject *item);
+
+PyObject *RbArray_WRAP(VALUE ptr);
+PyObject *RbArray_Wrap(VALUE ptr);
+
+PyObject *py_cRubython_RbArray_tp_richcompare(PyObject *self, PyObject *other, int op);
 
 void init_Rubython_RbArray(void);
 

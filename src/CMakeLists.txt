@@ -5,19 +5,19 @@ set(SOURCES
   rb_PyContext.c
   rb_PyTypes.c
   rb_PyObject.c
-  rb_PyDict.c
-  rb_PyType.c
   rb_PyString.c
-  rb_PyFunction.c
-  rb_PyCFunction.c
+  rb_PyList.c
+  rb_PyDict.c
+  rb_error.c
 
   py_Rubython.c
   py_RbContext.c
   py_RbTypes.c
   py_RbObject.c
+  py_RbString.c
   py_RbArray.c
   py_RbHash.c
-  py_RbString.c
+  py_error.c
 
   ruby_shims.c
 
@@ -50,17 +50,22 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-set(CFLAGS "-dynamic -pipe -fno-common -fno-strict-aliasing -Wall -Wstrict-prototypes -Wdeprecated -Wno-unused-function -Wno-unused-variable -std=c99")
+set(CFLAGS "-dynamic -pipe -fno-common -fno-strict-aliasing -Wall -Werror -Wstrict-prototypes -Wdeprecated -Wno-macro-redefined -Wno-unused-function -Wno-unused-variable -std=c11")
 set(LDFLAGS "-dynamic -fPIC -Bstatic -fstack-protector -Wl,-undefined,dynamic_lookup")
 
+include(FindPythonDirs)
+FIND_PYTHON_DIRS()
+link_directories(${PYTHON_LIBRARY_DIR})
+include_directories(${PYTHON_HEADER_DIR})
+
 if(APPLE)
-  find_package(PythonLibs)
-  if(PYTHONLIBS_FOUND)
-    message(STATUS ${PYTHON_INCLUDE_DIRS})
-    include_directories(${PYTHON_INCLUDE_DIRS})
-  else(PYTHONLIBS_FOUND)
-    message(FATAL_ERROR "Could not locate python libraries")
-  endif(PYTHONLIBS_FOUND)
+  # find_package(PythonLibs)
+  # if(PYTHONLIBS_FOUND)
+  #   message(STATUS ${PYTHON_INCLUDE_DIRS})
+  #   include_directories(${PYTHON_INCLUDE_DIRS})
+  # else(PYTHONLIBS_FOUND)
+  #   message(FATAL_ERROR "Could not locate python libraries")
+  # endif(PYTHONLIBS_FOUND)
 
   # TODO: Don't hardcode these
   set(PY_SUFFIX ".so")
@@ -71,8 +76,8 @@ if(APPLE)
   set(LIBRARIES ${LIBRARIES} dl objc) # z pthread
 else(APPLE)
   # TODO: Fix this
-  include_directories("/usr/local/python2.7/include/python2.7")
-  set(PYTHON_LIBRARIES "python2.7")
+  # include_directories("/usr/local/python2.7/include/python2.7")
+  # set(PYTHON_LIBRARIES "python2.7")
 
   # TODO: Don't hardcode these
   set(PY_SUFFIX ".so")
@@ -84,7 +89,6 @@ else(APPLE)
   set(LIBRARIES ${LIBRARIES})
 endif(APPLE)
 
-set(DEBUG TRUE)
 if(DEBUG)
   set(CFLAGS "${CFLAGS} -O0 -g3 -fPIC")
 else(DEBUG)
@@ -92,7 +96,7 @@ else(DEBUG)
 endif(DEBUG)
 
 add_library(${PROJECT_NAME}_ruby_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_ruby_ext ${LIBRARIES} ${PYTHON_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_ruby_ext ${LIBRARIES} ${PYTHON_LIBNAME})
 set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
     COMPILE_FLAGS "${CFLAGS}"
@@ -101,9 +105,11 @@ set_target_properties(${PROJECT_NAME}_ruby_ext PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ruby/"
     EXCLUDE_FROM_ALL TRUE)
 
+message(STATUS "LIBRARIES: ${LIBRARIES}")
+
 link_directories(${RUBY_LIBRARY_DIR})
 add_library(${PROJECT_NAME}_python_ext MODULE ${SOURCES})
-target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES} ${RUBY_LIBRARY_PATH})
+target_link_libraries(${PROJECT_NAME}_python_ext ${LIBRARIES} ${RUBY_LIBRARY_PATH} ${PYTHON_LIBNAME})
 set_target_properties(${PROJECT_NAME}_python_ext PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}_ext
     PREFIX "" SUFFIX ${PY_SUFFIX}
