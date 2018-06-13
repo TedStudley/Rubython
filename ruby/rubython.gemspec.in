@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.summary      = 'Rubython'
   s.description  = 'Probably a bad idea'
   s.authors      = ['Ted Studley']
-  s.email        = ['estudley@castlighthealth.com']
+  s.email        = ['tedstudley@gmail.com']
 
   s.files        = Dir["{lib}/**/*.{rb,bundle}"]
   s.require_path = 'lib'

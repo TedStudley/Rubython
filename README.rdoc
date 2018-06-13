@@ -1,0 +1,49 @@
+Whenever possible, XxContext should attempt to follow the conventions of the _host_ context.
+
+In *Ruby*:
+  - Dot notation (e.g. `foo.bar`) yields the result of calling the method `bar` from instance `foo`.
+    * The bound method instance for `foo.bar` can be accessed via `foo.method(:bar)`.
+    * The unbound method instance for `Foo#bar` can be accessed via `foo.method(:bar).unbind`.
+    * The result of calling the method `bar` from instance `foo` can be evaluated via `foo.bar`
+  - An instance of type `Foo` can be instantiated via `Foo.new`
+  - Instance variables within instance `foo` are not implicitly externally accessible
+    * Instance variable 'bar' within instance `foo` can be explicitly accessed via `foo.instance_variable_get(:@bar)`
+  - Class variables within class `Foo` are not implicitly externally accessible
+    * Class variable 'bar' within class `Foo` can be explicitly accessed via `Foo.class_variable_get(:@@bar)`
+  - The class of instance 'foo' can be accessed via `foo.class` (This *will not translate*)
+In *Python*:
+  - Dot notation in Ruby (e.g. `foo.bar`) yields the value of the attribute `bar` from instance `foo`.
+    * The bound method instance for `foo.bar` can be accessed via `foo.bar`
+    * The unbound method instance for `Foo.bar` can be accessed via `Foo.bar`
+    * The result of calling the method `bar` from instance `foo` can be evaluated via `foo.bar()`
+  - An instance of type `Foo` can be instantiated via `Foo()`
+  - Instance variables within instance `foo` are implicitly externally accessible
+    * Instance variable 'bar' within instance `Foo` can be explicitly accessed via `getattr(foo, 'bar')`
+  - Class variables within class `Foo` are implicitly externally accessible
+    * Class variable `bar` within class `Foo` can be explicitly accessed via `getattr(Foo, 'bar')`
+  - The class of instance `foo` can be accessed via `type(foo)` (This *will not translate*)
+
+The notable exceptions to following the conventions of the host context, ast listed above, are:
+in *Ruby*:
+  - The expression `foo.bar` will yield the result of calling `bar` from instance `foo` *unless*:
+    * `bar` is a non-callable attribute of `foo`, or
+    * `bar` is a typename.
+    In both cases, the expression `foo.bar` will yield the value of attribute `bar` from instance `foo`.
+  - The Python class of instance `foo` can be accessed via `context.type(foo)`, where `context` is the PyContext
+    owner of `foo`.
+in *Python*:
+  - Instance variable `bar` within instance `foo` can be explicitly accessed via `foo.instance_variable_get('@bar')`
+  - Class variable `bar` within class `Foo` can be explicitly accessed via `Foo.class_variable_get('@@bar')`
+  - -An instance of Ruby type `Foo` can be instantiated via `Foo.new()`- edit: revisit this if we have issues with
+    overlapping `Foo.call` and `Foo.new`.
+
+Implicitly accessing values from within the main guest context scope will follow the same behavior as
+standard dot notation:
+ - Accessing the local/global/builtin `foo` within PyContext `context` from Ruby can be accomplished via `context.foo`.
+   * If `foo` is a callable, then `context.foo` will yield the result of calling the method `foo` within PyContext `context` *unless*:
+     - `foo` is a non-callable object, or
+     - `foo` is a type
+     In both cases, the expression `context.foo` will yield the value of the object `foo` from within PyContext `context`
+   * The value of object `foo` from within PyContext `context` can be accessed in _all_ cases via `context.getattr(:foo)`
+ - Accessing the local/global `foo` within RbContext `context` from Python can be accomplished via `context.foo`.
+

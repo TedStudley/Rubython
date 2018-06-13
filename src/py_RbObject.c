@@ -62,6 +62,10 @@ PyTypeObject py_Rubython_RbObject_type = {
 static void
 py_cRubython_RbObject_tp_dealloc(PyObject *self) {
   DEBUG_MARKER;
+  if (py_cRubython_RbContext_removeObject(RBOBJECT_CONTEXT(self), self)) {
+    printf("This should never happen!\n");
+    DEBUG_MARKER;
+  };
   py_cRubython_RbObject_tp_clear(self);
   Py_TYPE(self)->tp_free(self);
 }
@@ -69,11 +73,26 @@ py_cRubython_RbObject_tp_dealloc(PyObject *self) {
 static int
 py_cRubython_RbObject_tp_clear(PyObject *self) {
   DEBUG_MARKER;
-  // This might be a problem, since it isn't actually an RObject pointer...
-  rb_gc_unregister_address(&RBOBJECT_VALUE(self));
-  RBOBJECT_VALUE(self) = Qundef;
-  Py_CLEAR(RBOBJECT_CONTEXT(self));
 
+  if (RBOBJECT_CONTEXT(self)) {
+    py_cRubython_RbObject_release(self);
+    rb_gc_unregister_address(&RBOBJECT_VALUE(self));
+  }
+
+  RBOBJECT_VALUE(self) = Qundef;
+  return 0;
+}
+
+int
+py_cRubython_RbObject_release(PyObject *self) {
+  DEBUG_MARKER;
+  printf("%p\n", self);
+  py_cRubython_RbContext_removeObject(RBOBJECT_CONTEXT(self), self);
+  DEBUG_MARKER;
+  rb_gc_unregister_address(&RBOBJECT_VALUE(self));
+  DEBUG_MARKER;
+  Py_CLEAR(RBOBJECT_CONTEXT(self));
+  DEBUG_MARKER;
   return 0;
 }
 
@@ -125,7 +144,8 @@ py_cRubython_RbObject_tp_repr(PyObject *self) {
   }
 
   py_repr = Rb2PyRaw_String(rb_repr);
-  Py_RETURN(py_repr);
+  printf("String at %p\n", py_repr);
+  return py_repr;
 }
 
 static PyObject *
@@ -150,7 +170,7 @@ py_cRubython_RbObject_tp_call(PyObject *self, PyObject *args, PyObject *other) {
     return NULL;
   }
   result = RB2PY(rb_result);
-  Py_RETURN(result);
+  return result;
 }
 
 static PyObject *
@@ -202,9 +222,14 @@ py_cRubython_RbObject_tp_init(PyObject *self, PyObject *args, PyObject *kwds) {
     // Something funky is going on
     return -1;
 
-  RBOBJECT_CONTEXT(self) = (*rbcontext_instance_p);
-  Py_INCREF(RBOBJECT_CONTEXT(self));
-
+  PyObject *context = (*rbcontext_instance_p);
+  RBOBJECT_CONTEXT(self) = context;
+  Py_INCREF(context);
+  if (py_cRubython_RbContext_addObject(context, self)) {
+    printf("This should never happen!\n");
+    DEBUG_MARKER;
+  }
+  rb_gc_register_address(&RBOBJECT_VALUE(self));
   return 0;
 }
 

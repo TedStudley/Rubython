@@ -23,6 +23,7 @@ typedef struct py_Rubython_RbObjectStruct {
 extern PyObject *py_cRbObject;
 extern PyTypeObject py_Rubython_RbObject_type;
 
+int py_cRubython_RbObject_release(PyObject *self);
 static int py_cRubython_RbObject_tp_traverse(PyObject *self, visitproc visit, void *arg);
 static void py_cRubython_RbObject_tp_dealloc(PyObject *self);
 static int py_cRubython_RbObject_tp_clear(PyObject *self);

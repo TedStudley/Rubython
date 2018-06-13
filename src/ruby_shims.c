@@ -14,3 +14,7 @@ rb_serial_t volatile *ruby_vm_global_constant_state_p = RUBY_VM_GLOBAL_CONSTANT_
 rb_serial_t volatile *ruby_vm_class_serial_p = RUBY_VM_CLASS_SERIAL_ADDR;
 struct symbols *global_symbols_p = GLOBAL_SYMBOLS_ADDR;
 struct global_method_cache_t *global_method_cache_p = GLOBAL_METHOD_CACHE_ADDR;
+void (*rb_garbage_collect)(void) = RB_GARBAGE_COLLECT_ADDR;
+int (*obj_free)(rb_objspace_t *, VALUE) = OBJ_FREE_ADDR;
+VALUE *reg_cache_p = REG_CACHE_ADDR;
+VALUE *default_proc_for_compat = GC_STAT_INTERNAL_DEFAULT_PROC_FOR_COMPAT_ADDR;

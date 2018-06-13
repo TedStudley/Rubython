@@ -181,9 +181,6 @@ struct list_head {
 
 typedef struct rb_thread_cond_struct {
   pthread_cond_t cond;
-#ifdef HAVE_CLOCKID_T
-  clockid_t clockid;
-#endif
 } rb_nativethread_cond_t;
 
 typedef struct native_thread_data_struct {
@@ -318,9 +315,6 @@ struct rb_iseq_struct {
     ISEQ_TYPE_MAIN,
     ISEQ_TYPE_DEFINED_GUARD
   } type;
-#if defined(WORDS_BIGENDIAN) && (SIZEOF_VALUE > SIZEOF_INT)
-  char dummy[SIZEOF_VALUE - SIZEOF_INT];
-#endif
   int stack_max;
 
   rb_iseq_location_t location;
@@ -446,16 +440,157 @@ enum ruby_basic_operators {
   BOP_LAST_
 };
 
+typedef uintptr_t bits_t;
+enum {
+  BITS_SIZE = sizeof(bits_t),
+  BITS_BITLENGTH = ( BITS_SIZE * CHAR_BIT )
+};
+
+struct heap_page_header {
+  struct heap_page *page;
+};
+
+struct heap_page_body {
+  struct heap_page_header header;
+};
+
+#define STACK_CHUNK_SIZE 500
+
+typedef struct stack_chunk {
+  VALUE data[STACK_CHUNK_SIZE];
+  struct stack_chunk *next;
+} stack_chunk_t;
+
+typedef struct mark_stack {
+  stack_chunk_t *chunk;
+  stack_chunk_t *cache;
+  int index;
+  int limit;
+  size_t cache_size;
+  size_t unused_cache_size;
+} mark_stack_t;
+
+typedef struct rb_heap_struct {
+  VALUE *freelist;
+
+  struct heap_page *free_pages;
+  struct heap_page *using_page;
+  struct heap_page *pages;
+  struct heap_page *sweep_pages;
+  struct heap_page *pooled_pages;
+  size_t page_length;
+  size_t total_slots;
+} rb_heap_t;
+
+enum gc_stat {
+  gc_stat_none,
+  gc_stat_marking,
+  gc_stat_sweeping
+};
+
+typedef struct rb_objspace {
+  struct {
+    size_t limit;
+    size_t increase;
+  } malloc_params;
+
+  struct {
+    enum gc_stat stat : 2;
+    unsigned int immediate_sweep : 1;
+    unsigned int dont_gc : 1;
+    unsigned int dont_incremental : 1;
+    unsigned int during_gc : 1;
+    unsigned int gc_stressful : 1;
+    unsigned int during_minor_gc : 1;
+    unsigned int during_incremental_marking : 1;
+  } flags;
+
+  rb_event_flag_t hook_events;
+  size_t total_allocated_objects;
+
+  rb_heap_t eden_heap;
+  rb_heap_t tomb_heap;
+
+  struct {
+    rb_atomic_t finalizing;
+  } atomic_flags;
+
+  struct mark_func_data_struct {
+    void *data;
+    void (*mark_func)(VALUE v, void *data);
+  } *mark_func_data;
+
+  mark_stack_t mark_stack;
+  size_t marked_slots;
+
+  struct {
+    struct heap_page **sorted;
+    size_t allocated_pages;
+    size_t allocatable_pages;
+    size_t sorted_length;
+    VALUE *range[2];
+
+    size_t swept_slots;
+    size_t min_free_slots;
+    size_t max_free_slots;
+
+    size_t final_slots;
+    VALUE deferred_final;
+  } heap_pages;
+
+  st_table *finalizer_table;
+
+  struct {
+    int run;
+    int latest_gc_info;
+    void *records; // gc_profile_record
+    void *current_record; // gc_profile_record
+    size_t next_index;
+    size_t size;
+    double invoke_time;
+
+    size_t minor_gc_count;
+    size_t major_gc_count;
+
+    double gc_sweep_start_time;
+    size_t total_allocated_objects_at_gc_start;
+    size_t heap_used_at_gc_start;
+
+    size_t count;
+    size_t total_freed_objects;
+    size_t total_allocated_pages;
+    size_t total_freed_pages;
+  } profile;
+
+  struct gc_list *global_list;
+
+  VALUE gc_stress_mode;
+
+  struct {
+    VALUE parent_object;
+    int need_major_gc;
+    size_t last_major_gc;
+    size_t remembered_wb_unprotected_objects;
+    size_t remembered_wb_unprotected_objects_limit;
+    size_t old_objects;
+    size_t old_objects_limit;
+
+    size_t oldmalloc_increase;
+    size_t oldmalloc_increase_limit;
+
+  } rgengc;
+  struct {
+    size_t pooled_slots;
+    size_t step_slots;
+  } rincgc;
+} rb_objspace_t;
+
 struct rb_vm_struct;
 typedef void rb_vm_at_exit_struct(struct rb_vm_struct *);
 typedef struct rb_at_exit_list {
   rb_vm_at_exit_struct *func;
   struct rb_at_exit_list *next;
 } rb_at_exit_list;
-
-#if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
-struct rb_objspace;
-#endif
 
 typedef struct rb_hook_list_struct {
   struct rb_event_hook_struct *hooks;
@@ -521,9 +656,7 @@ typedef struct rb_vm_struct {
 
   VALUE defined_module_hash;
 
-#if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
   struct rb_objspace *objspace;
-#endif
 
   rb_at_exit_list *at_exit;
 
@@ -552,10 +685,6 @@ typedef struct rb_control_frame_struct {
   rb_iseq_t *block_iseq;
   VALUE proc;
   const rb_method_entry_t *me;
-
-#if VM_DEBUG_BP_CHECK
-  VALUE *bp_check;
-#endif
 } rb_control_frame_t;
 
 typedef struct rb_block_struct {
@@ -653,9 +782,6 @@ typedef struct rb_thread_struct {
 
   /* thread control */
   rb_nativethread_id_t thread_id;
-#ifdef NON_SCALAR_THREAD_ID
-  rb_thread_id_string_t thread_id_string;
-#endif
   enum rb_thread_status status;
   int to_kill;
   int priority;
@@ -668,11 +794,6 @@ typedef struct rb_thread_struct {
 
   /* temporary place of errinfo */
   VALUE errinfo;
-
-  /* temporary place of retval on OPT_CALL_THREADED_CODE */
-#if OPT_CALL_THREADED_CODE
-  VALUE retval;
-#endif
 
   /* async errinfo queue */
   VALUE pending_interrupt_queue;
@@ -712,11 +833,6 @@ typedef struct rb_thread_struct {
     VALUE *stack_start;
     VALUE *stack_end;
     size_t stack_maxsize;
-#ifdef __ia64
-    VALUE *register_stack_start;
-    VALUE *register_stack_end;
-    size_t register_stack_maxsize;
-#endif
     jmp_buf regs;
   } machine;
 
@@ -738,9 +854,7 @@ typedef struct rb_thread_struct {
   /* misc */
   int method_missing_reason;
   int abort_on_exception;
-#ifdef USE_SIGALTSTACK
   void *altstack;
-#endif
   unsigned long running_time_us;
 } rb_thread_t;
 
@@ -835,5 +949,9 @@ extern rb_serial_t volatile *ruby_vm_global_constant_state_p;
 extern rb_serial_t volatile *ruby_vm_class_serial_p;
 extern struct symbols *global_symbols_p;
 extern struct global_method_cache_t *global_method_cache_p;
+extern int (*obj_free)(rb_objspace_t *, VALUE);
+extern void (*rb_garbage_collect)(void);
+extern VALUE *reg_cache_p;
+extern VALUE *default_proc_for_compat;
 
 #endif // HEADER__RUBY_SHIMS_H__INCLUDED

@@ -2,6 +2,7 @@
 #include "ruby.h"
 #include "structmember.h"
 #include "ruby/vm.h"
+#include "malloc/malloc.h"
 
 #include "ruby_shims.h"
 #include "utility.h"
@@ -24,6 +25,8 @@
 
 static PyMethodDef py_cRubython_RbContext_tp_methods[];
 static PyMemberDef py_cRubython_RbContext_tp_members[];
+
+int py_cRubython_RbObject_release(PyObject *self);
 
 PyObject *py_cRbContext;
 
@@ -67,7 +70,7 @@ static PyTypeObject py_Rubython_RbContext_type = {
     (initproc)py_cRubython_RbContext_tp_init, // tp_init
     0, // (allocfunc) tp_alloc
     py_cRubython_RbContext_tp_new, // tp_new
-    0, // (freefunc) tp_free
+    py_cRubython_RbContext_tp_free, // (freefunc) tp_free
 };
 
 static void
@@ -75,6 +78,12 @@ py_cRubython_RbContext_tp_dealloc(PyObject *self) {
   DEBUG_MARKER;
   py_cRubython_RbContext_tp_clear(self);
   Py_TYPE(self)->tp_free((PyObject *)(self));
+}
+
+static void
+py_cRubython_RbContext_tp_free(void *self) {
+  DEBUG_MARKER;
+  free(RBCONTEXT_OBJECTS(self).objects);
 }
 
 static int
@@ -95,8 +104,12 @@ static int InitRuby() {
   int state = 0;
 
   RUBY_INIT_STACK;
+  DEBUG_MARKER;
+  DEBUG_MARKER;
   state = ruby_setup();
+  DEBUG_MARKER;
   if (state) {
+    DEBUG_MARKER;
     PyErr_SetString(PyExc_RuntimeError, "There was a problem attempting to set up Ruby!");
     return state;
   }
@@ -104,22 +117,32 @@ static int InitRuby() {
   origarg->argc = 1;
   origarg->argv = malloc(sizeof(char *));
   origarg->argv[0] = "rubython";
+  DEBUG_MARKER;
 
   ruby_init_loadpath();
+  DEBUG_MARKER;
 
   rb_const_remove(rb_cObject, rb_intern("ARGV"));
+  DEBUG_MARKER;
   ruby_prog_init();
+  DEBUG_MARKER;
 
   Init_enc();
+  DEBUG_MARKER;
   Init_ext();
-
-  Init_prelude();
-  rb_const_remove(rb_cObject, rb_intern("TMP_RUBY_PREFIX"));
+  DEBUG_MARKER;
 
   rb_define_module("Gem");
+  DEBUG_MARKER;
+
+  Init_prelude();
+  DEBUG_MARKER;
+  rb_const_remove(rb_cObject, rb_intern("TMP_RUBY_PREFIX"));
+  DEBUG_MARKER;
 
   // Initialize Rubython on the other side...
   Init_rubython_ext();
+  DEBUG_MARKER;
 
   return state;
 }
@@ -134,6 +157,12 @@ py_cRubython_RbContext_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds
     (*rbcontext_instance_p) = (PyObject *)(type)->tp_alloc(type, 0);
     PyObject *instance = (*rbcontext_instance_p);
 
+    RBCONTEXT_OBJECTS(instance).maxsize = 16;
+    RBCONTEXT_OBJECTS(instance).objects = malloc(16*sizeof(PyObject *));
+    for (size_t i = 0; i < 16; ++i)
+      RBCONTEXT_OBJECTS(instance).objects[i] = NULL;
+    RBCONTEXT_OBJECTS(instance).size = 0;
+
     // Start up Ruby
     state = InitRuby();
     if (state) {
@@ -143,11 +172,64 @@ py_cRubython_RbContext_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 
     RBCONTEXT_BINDING(instance) = Qundef;
     rb_gc_register_address(&RBCONTEXT_BINDING(instance));
+    DEBUG_PRINTF("GC REGISTER %p\n", &RBCONTEXT_BINDING(instance));
 
     // Grab the master reference to the context instance
     Py_INCREF(instance);
   }
   return (*rbcontext_instance_p);
+}
+
+int
+py_cRubython_RbContext_addObject(PyObject *self, PyObject *obj) {
+  DEBUG_MARKER;
+  py_Rubython_RbContext *context = (py_Rubython_RbContext *)(self);
+  if (context->rb_objects.size >= context->rb_objects.maxsize) {
+    size_t newsize = context->rb_objects.maxsize + 16;
+    if (newsize < context->rb_objects.maxsize) {
+      PyErr_SetString(py_eRubythonError, "Failed to allocate more space for object refs!");
+      return -1;
+    }
+    context->rb_objects.objects = realloc(context->rb_objects.objects, newsize*sizeof(PyObject *));
+    for (size_t i = context->rb_objects.maxsize; i < newsize; ++i)
+      context->rb_objects.objects[i] = NULL;
+    DEBUG_PRINTF("Allocated more space for objects (%zu -> %zu)\n", context->rb_objects.maxsize, newsize);
+    context->rb_objects.maxsize = newsize;
+  }
+
+  if (context->rb_objects.packed) {
+    context->rb_objects.objects[context->rb_objects.size++] = obj;
+  } else {
+    size_t idx;
+    for (idx = 0; idx < context->rb_objects.size && context->rb_objects.objects[idx] != NULL; ++idx);
+    context->rb_objects.objects[idx] = obj;
+    if (idx >= context->rb_objects.size++)
+      context->rb_objects.packed = 1;
+  }
+  return 0;
+}
+
+int
+py_cRubython_RbContext_removeObject(PyObject *self, PyObject *obj) {
+  DEBUG_MARKER;
+  py_Rubython_RbContext *context = (py_Rubython_RbContext *)(self);
+  size_t idx;
+  for (idx = 0; idx < context->rb_objects.maxsize; ++idx)
+    if (context->rb_objects.objects[idx] == obj)
+      break;
+
+  if (idx >= context->rb_objects.maxsize) {
+    PyErr_Format(py_eRubythonError, "Failed to find object %p in object refs!", obj);
+    return -1;
+  }
+
+  if (context->rb_objects.packed) {
+    if (idx != context->rb_objects.size - 1)
+      context->rb_objects.packed = 0;
+  }
+  context->rb_objects.objects[idx] = NULL;
+  context->rb_objects.size--;
+  return 0;
 }
 
 static PyObject *
@@ -176,16 +258,54 @@ py_cRubython_RbContext_s_finalize(PyObject *cls, PyObject *dummy) {
     Py_RETURN_NONE;
 
   instance = (*rbcontext_instance_p);
+  // Release all the held objects
+  py_Rubython_RbContext *context = (py_Rubython_RbContext *)(instance);
+  size_t idx = 0;
+  if (context->rb_objects.packed) {
+    while (context->rb_objects.size > 0)
+      py_cRubython_RbObject_release(context->rb_objects.objects[--context->rb_objects.size]);
+  } else {
+    for (size_t idx = 0; idx < context->rb_objects.maxsize && context->rb_objects.size > 0; ++idx) {
+      PyObject *obj = context->rb_objects.objects[idx];
+      if (obj != NULL) {
+        py_cRubython_RbObject_release(obj);
+        context->rb_objects.size--;
+      }
+    }
+  }
   // Release the master reference to the rbcontext instance
   Py_DECREF(instance);
   rbcontext_instance_p = NULL;
 
   // Allow the binding to be cleaned up
   // TODO: Wtf happens to any extant references?
+  printf("GC UNREGISTER %p\n", &RBCONTEXT_BINDING(instance));
   rb_gc_unregister_address(&RBCONTEXT_BINDING(instance));
 
   // Clean up after Ruby
   rb_set_errinfo(Qnil);
+  rb_garbage_collect();
+  rb_objspace_t *tmp_objspace = (*ruby_current_vm_p)->objspace;
+  printf("OBJSPACE AT %p\n", tmp_objspace);
+  // stack_chunk_t *chunk = tmp_objspace->mark_stack.cache;
+  // while (chunk != NULL) {
+  //   for (idx = 0; idx < STACK_CHUNK_SIZE && chunk->data[idx] != 0; ++idx)
+  //     if (malloc_size((void *)(chunk->data[idx]))) {
+  //       obj_free(tmp_objspace, chunk->data[idx]);
+  //       chunk->data[idx] = Qundef;
+  //     }
+  //   chunk = chunk->next;
+  // }
+  // chunk = tmp_objspace->mark_stack.chunk;
+  // while (chunk != NULL) {
+  //   for (idx = 0; idx < STACK_CHUNK_SIZE && chunk->data[idx] != 0; ++idx)
+  //     if (malloc_size((void *)(chunk->data[idx]))) {
+  //       obj_free(tmp_objspace, chunk->data[idx]);
+  //       chunk->data[idx] = Qundef;
+  //     }
+  //   chunk = chunk->next;
+  // }
+
   state = ruby_cleanup(0);
   if (state) {
     HandleRbErrors("TODO: Better Errors!");
@@ -198,6 +318,7 @@ py_cRubython_RbContext_s_finalize(PyObject *cls, PyObject *dummy) {
   (*ruby_vm_global_method_state_p) = 1;
   (*ruby_vm_global_constant_state_p) = 1;
   (*ruby_vm_class_serial_p) = 1;
+  (*default_proc_for_compat) = 0;
   // Really dumb
   // TODO: This probably leaks memory.
   rb_cBasicObject = 0;
